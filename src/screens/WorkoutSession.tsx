@@ -191,12 +191,13 @@ export function WorkoutSession({
   };
   useEffect(() => {
     if (active.restEndsAt && now >= active.restEndsAt) finishRest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- finishRest es idempotente (ver notifiedRest).
   }, [now, active.restEndsAt]);
 
   return (
     <div className="workout-screen">
       <div className="workout-topbar">
-        <button type="button" className="brand-lockup" onClick={() => onPause()} aria-label="Pausar entrenamiento">
+        <button type="button" className="brand-lockup" onClick={() => onPause()} aria-label={`ManteYym: ${active.status === "running" ? "pausar" : "reanudar"} entrenamiento`}>
           <span className="brand-mark">
             <Icon name="ejercicios" size={19} />
           </span>
@@ -332,7 +333,7 @@ export function WorkoutSession({
                           type="button"
                           className="session-demo-thumb"
                           onClick={() => onOpenExercise(exercise)}
-                          aria-label={`Ver demostración de ${exercise.name}`}
+                          aria-label={`${String(exerciseIndex + 1).padStart(2, "0")} · Ver demostración de ${exercise.name}`}
                         >
                           <ExerciseDemo exercise={exercise} compact />
                           <span className="exercise-order-badge">{String(exerciseIndex + 1).padStart(2, "0")}</span>

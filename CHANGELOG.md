@@ -1,12 +1,19 @@
 # Cambios
 
+## 1.1.0
+
+- PWA instalable de verdad: faltaban los íconos PNG y el service worker no se instalaba (sin offline).
+- Service worker con versión por build, assets opcionales tolerantes a errores, imágenes con CORS y
+  actualización controlada por el usuario.
+- Esquema de datos v2 con migraciones; los respaldos v1 se siguen pudiendo importar.
+- Registro de dolor append-only con "sin dolor" explícito, contexto de sesión/ejercicio/serie, alertas
+  de seguridad y pantalla propia.
+- Historial completo y editable (con bitácora y deshacer), PR derivados, CSV, medidas ampliadas,
+  comparación de fotos antes/después.
+- Demos animadas y contenido técnico propio para los ejercicios base; funcionan sin conexión.
+- Tildes y ñ en toda la interfaz; accesibilidad revisada con axe; tamaños de texto mínimos de 12 px.
+- Pruebas: Vitest (37) y Playwright (5) en CI.
+
 ## 1.0.0
 
-- Sustituida la pantalla inicial de plantilla por ManteYym, con cuestionario, perfil local y navegacion en cinco secciones.
-- Anadido catalogo local de 64 ejercicios, generador de rutinas, plantillas y editor de planes.
-- Anadido motor de progresion, calculo de 1RM estimado, series de aproximacion, volumen muscular y calculadora de discos.
-- Anadida sesion persistente con cronometro por timestamps, series, descanso absoluto, pausa, finalizacion y resumen.
-- Anadadidos seguimiento de sesiones, medidas, fotos, lesiones, cardio, metas, movilidad y revision semanal local.
-- Anadidos IndexedDB versionado, respaldo JSON, restauracion transaccional, manifest, service worker, iconos y manejo de actualizaciones.
-- Anadidos tema claro/oscuro, accesibilidad basica, diseno adaptable y guia de despliegue.
-- Verificados el endpoint y la licencia Unlicense de free-exercise-db; la descarga ampliada es opcional.
+- Versión inicial generada: cuestionario, rutinas, sesión, progreso, respaldo JSON y PWA.

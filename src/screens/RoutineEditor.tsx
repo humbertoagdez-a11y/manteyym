@@ -26,6 +26,7 @@ export function RoutineEditor({
   useEffect(() => {
     setDraft(routine);
     setDayIndex(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se reinicia el borrador solo al cambiar de rutina, no en cada guardado.
   }, [routine.id]);
   const day = draft.days[dayIndex];
   const updateDay = (transform: (current: RoutineDay) => RoutineDay) =>

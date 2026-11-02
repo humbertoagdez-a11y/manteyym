@@ -292,6 +292,7 @@ function App() {
       document.removeEventListener("visibilitychange", onVisible);
       if (lock) void lock.release().catch(() => undefined);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo importa el estado y el id de la sesión, no cada cambio de series.
   }, [state.activeSession?.status, state.activeSession?.id]);
 
   const safePersist = async <S extends StoreName>(store: S, record: Parameters<typeof saveRecord<S>>[1]) => {
