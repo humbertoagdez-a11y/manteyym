@@ -1,3 +1,4 @@
+import { ExerciseDemo } from "../components/ExerciseDemo";
 import { Icon } from "../components/Icon";
 import { Button, EmptyState, Field, SelectField } from "../components/ui";
 import {
@@ -326,7 +327,19 @@ export function WorkoutSession({
                     )}
                   >
                     <div className="session-exercise-head">
-                      <div className="exercise-order">{String(exerciseIndex + 1).padStart(2, "0")}</div>
+                      {exercise ? (
+                        <button
+                          type="button"
+                          className="session-demo-thumb"
+                          onClick={() => onOpenExercise(exercise)}
+                          aria-label={`Ver demostración de ${exercise.name}`}
+                        >
+                          <ExerciseDemo exercise={exercise} compact />
+                          <span className="exercise-order-badge">{String(exerciseIndex + 1).padStart(2, "0")}</span>
+                        </button>
+                      ) : (
+                        <div className="exercise-order">{String(exerciseIndex + 1).padStart(2, "0")}</div>
+                      )}
                       <button
                         type="button"
                         className="session-exercise-title"

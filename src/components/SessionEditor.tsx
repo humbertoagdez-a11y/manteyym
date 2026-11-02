@@ -113,7 +113,7 @@ export function SessionEditor({
         </div>
 
         {draft.exercises.map((item, index) => (
-          <section className="editor-exercise" key={`${item.exerciseId}-${index}`}>
+          <section className="sessedit-exercise" key={`${item.exerciseId}-${index}`}>
             <header>
               <strong>
                 {String(index + 1).padStart(2, "0")} · {exerciseName(catalog, item.exerciseId)}

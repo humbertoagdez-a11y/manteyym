@@ -1,4 +1,8 @@
 import type { Exercise, Muscle, Pattern } from "../types";
+import { EXERCISE_CONTENT, REVIEWED } from "./exerciseContent";
+import mediaMap from "./media-map.json";
+
+const MEDIA = mediaMap.map as Record<string, { source: string; confidence: string; note?: string }>;
 
 type Row = [string, string, Muscle, Muscle[], string, Pattern, "compuesto" | "aislamiento"];
 
@@ -263,7 +267,23 @@ export const LOCAL_CATALOG: Exercise[] = rows.map(([id, name, muscle, secondary,
   equipment: equipment.split("|"),
   pattern,
   category,
-  steps: instructions[pattern],
-  mistakes: mistakes[pattern],
+  // Pasos y errores propios del ejercicio; los genéricos por patrón quedan solo como respaldo.
+  steps: EXERCISE_CONTENT[id]
+    ? [...EXERCISE_CONTENT[id].setup, ...EXERCISE_CONTENT[id].execution]
+    : instructions[pattern],
+  mistakes: EXERCISE_CONTENT[id]?.mistakes ?? mistakes[pattern],
+  content: EXERCISE_CONTENT[id],
+  contentReviewed: REVIEWED.has(id),
   source: "local",
+  media: MEDIA[id]
+    ? {
+        kind: "stills-2",
+        frames: [`exercises/${id}/0.webp`, `exercises/${id}/1.webp`],
+        alt: name,
+        source: "free-exercise-db",
+        license: "Unlicense",
+        sourceId: MEDIA[id].source,
+        note: MEDIA[id].note,
+      }
+    : undefined,
 }));

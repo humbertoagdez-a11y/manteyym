@@ -344,14 +344,14 @@
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
-.editor-exercise {
+.sessedit-exercise {
   display: grid;
   gap: 10px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
-.editor-exercise header small {
+.sessedit-exercise header small {
   display: block;
   color: var(--muted);
 }
@@ -495,4 +495,127 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 10px;
+}
+
+/* ---------- Demo de ejercicio ---------- */
+.exercise-demo {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.demo-stage {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 640 / 427;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.demo-stage img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.demo-top {
+  will-change: opacity;
+}
+.demo-labels {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.demo-labels span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.55;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+.demo-labels .demo-label-active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  opacity: 1;
+}
+.demo-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.demo-controls input[type="range"] {
+  flex: 1;
+  min-height: 44px;
+  accent-color: var(--accent);
+}
+.demo-speed {
+  min-width: 72px;
+  min-height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.exercise-demo figcaption {
+  color: var(--muted);
+  font-size: 12px;
+}
+.demo-note {
+  color: var(--warning);
+}
+.demo-thumb {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 48px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+}
+.demo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.session-demo-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.session-demo-thumb .demo-thumb {
+  width: 72px;
+  height: 54px;
+}
+.exercise-order-badge {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+.picker-row {
+  gap: 12px;
+}
+.review-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--warning);
+  font-size: 13px;
 }

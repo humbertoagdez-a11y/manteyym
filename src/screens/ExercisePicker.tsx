@@ -1,3 +1,4 @@
+import { ExerciseDemo } from "../components/ExerciseDemo";
 import { labelList } from "../i18n/es";
 import { Icon } from "../components/Icon";
 import { DialogFrame } from "../components/ui";
@@ -57,6 +58,7 @@ export function ExercisePicker({
         <div className="picker-list">
           {results.map((exercise) => (
             <button type="button" className="picker-row" key={exercise.id} onClick={() => onChoose(exercise)}>
+              <ExerciseDemo exercise={exercise} compact />
               <span>
                 <strong>{exercise.name}</strong>
                 <small>

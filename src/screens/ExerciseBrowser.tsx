@@ -1,5 +1,5 @@
 import { labelList, labelTitle } from "../i18n/es";
-import { ExerciseVisual } from "../components/ExerciseVisual";
+import { ExerciseDemo } from "../components/ExerciseDemo";
 import { Icon } from "../components/Icon";
 import { Button, EmptyState, SelectField } from "../components/ui";
 import { EXERCISE_PATTERN_LABELS } from "../constants";
@@ -131,7 +131,7 @@ export function ExerciseBrowser({
         <div className="exercise-list">
           {matches.slice(0, limit).map((exercise) => (
             <button type="button" className="exercise-row" key={exercise.id} onClick={() => onOpen(exercise)}>
-              <ExerciseVisual exercise={exercise} compact />
+              <ExerciseDemo exercise={exercise} compact />
               <span className="exercise-row-copy">
                 <strong>{exercise.name}</strong>
                 <small>

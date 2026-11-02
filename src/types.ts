@@ -82,6 +82,31 @@ export interface Exercise {
   originalMuscle?: string;
   images?: string[];
   instructionsOriginal?: boolean;
+  /** Demo del ejercicio (fotos empaquetadas en public/exercises/<id>/). */
+  media?: ExerciseMedia;
+  /** Contenido técnico propio (preparación, ejecución, respiración, variantes). */
+  content?: {
+    setup: string[];
+    execution: string[];
+    breathing: string;
+    mistakes: string[];
+    easier: string;
+    harder: string;
+  };
+  /** false hasta que una persona revise el contenido técnico. */
+  contentReviewed?: boolean;
+}
+
+export interface ExerciseMedia {
+  kind: "stills-2" | "svg-anim" | "video";
+  /** Rutas relativas a la app (p. ej. "exercises/back-squat/0.webp") o URLs remotas. */
+  frames: string[];
+  alt: string;
+  source: string;
+  license: string;
+  sourceId?: string;
+  /** Aclaración cuando la imagen es una variante cercana y no el ejercicio exacto. */
+  note?: string;
 }
 
 export interface WorkoutExercise {

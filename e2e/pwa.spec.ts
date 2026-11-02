@@ -24,6 +24,8 @@ test("el service worker se instala, cachea los íconos y la app abre offline", a
     "/icons/icon-512.png",
     "/icons/maskable-512.png",
     "/manifest.webmanifest",
+    "/exercises/back-squat/0.webp",
+    "/exercises/back-squat/1.webp",
     "/",
   ]) {
     expect(cached, `falta ${asset} en la caché`).toContain(asset);

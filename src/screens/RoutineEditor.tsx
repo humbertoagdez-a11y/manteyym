@@ -1,3 +1,4 @@
+import { ExerciseDemo } from "../components/ExerciseDemo";
 import { Icon } from "../components/Icon";
 import { Button, EmptyState, Field } from "../components/ui";
 import { EXERCISE_PATTERN_LABELS } from "../constants";
@@ -147,6 +148,7 @@ export function RoutineEditor({
                   <article className="editor-exercise" key={`${plan.exerciseId}-${index}`}>
                     <div className="editor-exercise-header">
                       <div className="editor-number">{String(index + 1).padStart(2, "0")}</div>
+                      {exercise && <ExerciseDemo exercise={exercise} compact />}
                       <div className="editor-exercise-name">
                         <strong>{exercise?.name ?? "Ejercicio eliminado"}</strong>
                         <small>

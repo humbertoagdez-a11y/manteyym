@@ -1,6 +1,6 @@
 import { exerciseRecords } from "../lib/records";
 import { label } from "../i18n/es";
-import { ExerciseVisual } from "../components/ExerciseVisual";
+import { ExerciseDemo } from "../components/ExerciseDemo";
 import { Icon } from "../components/Icon";
 import { DialogFrame } from "../components/ui";
 import { EXERCISE_PATTERN_LABELS } from "../constants";
@@ -39,7 +39,7 @@ export function ExerciseDetail({
   return (
     <DialogFrame title={exercise.name} onClose={onClose} wide>
       <div className="exercise-detail">
-        <ExerciseVisual exercise={exercise} />
+        <ExerciseDemo exercise={exercise} />
         <div className="exercise-detail-content">
           <div className="exercise-tags">
             <span>{MUSCLE_LABELS[exercise.muscle] ?? exercise.muscle}</span>
@@ -116,17 +116,55 @@ export function ExerciseDetail({
                 : "No especificados"}
             </p>
           </div>
-          <div className="detail-section">
-            <h3>Pasos</h3>
-            {exercise.instructionsOriginal && (
-              <p className="muted-copy">Instrucciones originales del catálogo en inglés, sin traducir.</p>
-            )}
-            <ol className="instruction-list">
-              {exercise.steps.map((step, index) => (
-                <li key={`${index}-${step}`}>{step}</li>
-              ))}
-            </ol>
-          </div>
+          {exercise.content ? (
+            <>
+              {exercise.contentReviewed === false && (
+                <p className="review-badge">
+                  <Icon name="info" size={15} /> Contenido técnico pendiente de revisión por una persona.
+                </p>
+              )}
+              <div className="detail-section">
+                <h3>Preparación</h3>
+                <ol className="instruction-list">
+                  {exercise.content.setup.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+              <div className="detail-section">
+                <h3>Ejecución</h3>
+                <ol className="instruction-list">
+                  {exercise.content.execution.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+              <div className="detail-section">
+                <h3>Respiración</h3>
+                <p>{exercise.content.breathing}</p>
+              </div>
+              <div className="detail-section">
+                <h3>Variantes</h3>
+                <p>
+                  <strong>Más fácil:</strong> {exercise.content.easier}
+                  <br />
+                  <strong>Más difícil:</strong> {exercise.content.harder}
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="detail-section">
+              <h3>Pasos</h3>
+              {exercise.instructionsOriginal && (
+                <p className="muted-copy">Instrucciones originales del catálogo en inglés, sin traducir.</p>
+              )}
+              <ol className="instruction-list">
+                {exercise.steps.map((step, index) => (
+                  <li key={`${index}-${step}`}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
           <div className="detail-section">
             <h3>Errores frecuentes</h3>
             <ul className="mistake-list">
