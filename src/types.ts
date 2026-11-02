@@ -1,8 +1,31 @@
 export type Goal = "hipertrofia" | "fuerza" | "perdida_grasa" | "resistencia" | "salud";
 export type Level = "principiante" | "intermedio" | "avanzado";
 export type Progression = "doble" | "lineal" | "rir";
-export type Pattern = "empuje-horizontal" | "empuje-vertical" | "tiron-horizontal" | "tiron-vertical" | "bisagra" | "sentadilla" | "zancada" | "core" | "aislamiento" | "otro";
-export type Muscle = "pecho" | "espalda" | "hombros" | "cuadriceps" | "isquiotibiales" | "gluteos" | "biceps" | "triceps" | "gemelos" | "abdomen" | "aductores" | "antebrazos" | "otro";
+export type Pattern =
+  | "empuje-horizontal"
+  | "empuje-vertical"
+  | "tiron-horizontal"
+  | "tiron-vertical"
+  | "bisagra"
+  | "sentadilla"
+  | "zancada"
+  | "core"
+  | "aislamiento"
+  | "otro";
+export type Muscle =
+  | "pecho"
+  | "espalda"
+  | "hombros"
+  | "cuadriceps"
+  | "isquiotibiales"
+  | "gluteos"
+  | "biceps"
+  | "triceps"
+  | "gemelos"
+  | "abdomen"
+  | "aductores"
+  | "antebrazos"
+  | "otro";
 export type Tab = "hoy" | "rutinas" | "ejercicios" | "progreso" | "ajustes";
 export type ExerciseSource = "local" | "free-exercise-db" | "personal";
 

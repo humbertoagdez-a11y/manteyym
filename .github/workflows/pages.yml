@@ -1,8 +1,9 @@
-name: Publicar ManteYym en GitHub Pages
+name: Verificar y publicar ManteYym
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -11,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,15 +25,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Instalar dependencias
-        run: npm install
-      - name: Compilar el sitio estatico
+          cache: npm
+      - name: Instalar dependencias exactas
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Pruebas
+        run: npm test
+      - name: Typecheck y compilación
         run: npm run build
+      - name: Verificar assets referenciados en dist
+        run: npm run check:dist
+      - name: Verificar tildes en textos visibles
+        run: npm run check:accents
       - name: Subir artefacto de Pages
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
   deploy:
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

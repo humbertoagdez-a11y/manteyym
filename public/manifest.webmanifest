@@ -2,7 +2,7 @@
   "id": "./",
   "name": "ManteYym - Entrenador personal",
   "short_name": "ManteYym",
-  "description": "Tu entrenador personal de gimnasio, privado y disponible sin conexion.",
+  "description": "Tu entrenador personal de gimnasio, privado y disponible sin conexión.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",
