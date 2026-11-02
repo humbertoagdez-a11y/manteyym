@@ -10,6 +10,7 @@ export function SessionSummary({
   profile,
   exercises,
   onClose,
+  onEndPain,
   onProgress,
 }: {
   session: TrainingSession;
@@ -17,6 +18,7 @@ export function SessionSummary({
   profile: Profile;
   exercises: Exercise[];
   onClose: () => void;
+  onEndPain: (status: "sin_dolor" | "con_molestia") => void;
   onProgress: () => void;
 }) {
   const completed = session.exercises.reduce((sum, item) => sum + item.sets.filter((set) => set.completed).length, 0);
@@ -92,6 +94,25 @@ export function SessionSummary({
               <strong>{formatted(effectiveVolume[muscle], 1)}</strong>
             </div>
           ))}
+        </div>
+        <div className="end-pain">
+          <span className="eyebrow">¿CÓMO TERMINASTE?</span>
+          {session.endPain ? (
+            <p>
+              {session.endPain === "sin_dolor"
+                ? "Registrado: terminaste sin dolor."
+                : "Registrado: terminaste con molestia."}
+            </p>
+          ) : (
+            <div className="end-pain-actions">
+              <Button variant="secondary" icon="smile" onClick={() => onEndPain("sin_dolor")}>
+                Sin dolor
+              </Button>
+              <Button variant="quiet" icon="pain" onClick={() => onEndPain("con_molestia")}>
+                Con molestia
+              </Button>
+            </div>
+          )}
         </div>
         {session.notes && (
           <div className="summary-note">

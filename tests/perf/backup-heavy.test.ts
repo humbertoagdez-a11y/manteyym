@@ -11,7 +11,12 @@ describe.runIf(process.env.RUN_PERF)("respaldo con fotos pesadas", () => {
     await store.initializeStore();
     const photo = new Uint8Array(3 * 1024 * 1024).map((_, index) => index % 251);
     for (let index = 0; index < 20; index++) {
-      await store.saveRecord("photos", { id: `p${index}`, at: index, label: "x", blob: new Blob([photo], { type: "image/jpeg" }) });
+      await store.saveRecord("photos", {
+        id: `p${index}`,
+        at: index,
+        label: "x",
+        blob: new Blob([photo], { type: "image/jpeg" }),
+      });
     }
     const heap = () => Math.round(process.memoryUsage().heapUsed / 1048576);
     const t0 = performance.now();

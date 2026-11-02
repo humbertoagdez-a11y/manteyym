@@ -164,6 +164,8 @@ export interface SessionExercise {
 
 export interface ActiveSession {
   id: "current";
+  /** v2: id definitivo que tendrá la sesión al terminar (vincula dolor y chequeo durante la sesión). */
+  sessionId?: string;
   routineId: string;
   dayId: string;
   dayName: string;
@@ -281,6 +283,8 @@ export interface PainEntry extends Revisioned {
   when: PainWhen;
   context?: { sessionId?: string; exerciseId?: string; setId?: string };
   note: string;
+  /** Apareció tras un golpe, caída o torsión fuerte (señal de alerta). */
+  afterImpact?: boolean;
   ongoing: boolean;
   resolvedAt?: number;
   /** Marca registros creados por una migración (p. ej. "v1-injury"). */

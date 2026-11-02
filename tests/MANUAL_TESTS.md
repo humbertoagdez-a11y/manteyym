@@ -42,7 +42,7 @@ El build se puede verificar con `npm run build`. No se dispone de una sesion de 
 Desde DevTools > Console, con `npm run dev` activo, ejecuta:
 
 ```js
-await import('/tests/console-tests.js').then((module) => module.runTests())
+await import("/tests/console-tests.js").then((module) => module.runTests());
 ```
 
 El archivo imprime nueve comprobaciones puras: Epley, discos, aproximaciones, doble progresion, estancamiento, rutina de dos a seis dias, restricciones de lesiones/equipo/exclusiones y volumen efectivo.

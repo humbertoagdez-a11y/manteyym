@@ -2,7 +2,8 @@ import { label, labelTitle } from "../i18n/es";
 import { BarChart, BodyMap, LineChart } from "../components/Charts";
 import { Icon } from "../components/Icon";
 import { Button, Field, PhotoTile, SelectField } from "../components/ui";
-import { DAY_MS, INJURY_ZONES } from "../constants";
+import { DAY_MS } from "../constants";
+import { activePainZones } from "../lib/pain";
 import {
   detectStagnation,
   estimatedOneRepMax,
@@ -14,7 +15,7 @@ import {
   weekStart,
 } from "../engine/fitness";
 import { cleanNumber, cx, exerciseName, formatClock, formatDate, formatDuration, formatted } from "../lib/format";
-import type { BodyMetric, Exercise, GoalRecord, Injury, Muscle, Profile, TrainingSession } from "../types";
+import type { BodyMetric, Exercise, GoalRecord, Muscle, PainEntry, Profile, TrainingSession } from "../types";
 import { type ChangeEvent, type FormEvent, useState } from "react";
 
 export function ProgressScreen({
@@ -22,14 +23,13 @@ export function ProgressScreen({
   sessions,
   catalog,
   metrics,
-  injuries,
+  painEntries,
+  onOpenPain,
   goals,
   cardio,
   photos,
   onOpenExercise,
   onAddMetric,
-  onAddInjury,
-  onDeleteInjury,
   onAddGoal,
   onDeleteGoal,
   onAddCardio,
@@ -40,14 +40,13 @@ export function ProgressScreen({
   sessions: TrainingSession[];
   catalog: Exercise[];
   metrics: BodyMetric[];
-  injuries: Injury[];
+  painEntries: PainEntry[];
+  onOpenPain: () => void;
   goals: GoalRecord[];
   cardio: { id: string; type: string; minutes: number; intensity: number; at: number }[];
   photos: { id: string; at: number; label: string; blob?: Blob }[];
   onOpenExercise: (exercise: Exercise) => void;
   onAddMetric: (metric: BodyMetric) => Promise<void>;
-  onAddInjury: (injury: Injury) => Promise<void>;
-  onDeleteInjury: (injury: Injury) => Promise<void>;
   onAddGoal: (goal: GoalRecord) => Promise<void>;
   onDeleteGoal: (goal: GoalRecord) => Promise<void>;
   onAddCardio: (record: { id: string; type: string; minutes: number; intensity: number; at: number }) => Promise<void>;
@@ -58,9 +57,6 @@ export function ProgressScreen({
   const [selectedExercise, setSelectedExercise] = useState(catalog[0]?.id ?? "");
   const [metricType, setMetricType] = useState("peso");
   const [bodyValues, setBodyValues] = useState({ weight: "", waist: "", chest: "", hip: "" });
-  const [injuryZone, setInjuryZone] = useState("hombro");
-  const [injuryNote, setInjuryNote] = useState("");
-  const [pain, setPain] = useState(2);
   const [goalExercise, setGoalExercise] = useState(catalog[0]?.id ?? "");
   const [goalTarget, setGoalTarget] = useState("");
   const [cardioType, setCardioType] = useState("Caminata");
@@ -95,7 +91,8 @@ export function ProgressScreen({
   );
   const exerciseStalls = catalog.filter((exercise) => detectStagnation(sessions, exercise.id)).slice(0, 3);
   const lastMetrics = [...metrics].sort((a, b) => b.at - a.at);
-  const injuryList = [...new Map([...profile.injuries, ...injuries].map((injury) => [injury.id, injury])).values()];
+  const activePain = activePainZones(painEntries);
+  const lastPain = painEntries[0];
   const currentMonth = new Date();
   const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
   const dayOffset = (monthStart.getDay() + 6) % 7;
@@ -130,12 +127,6 @@ export function ProgressScreen({
     if (Object.keys(metric).length <= 2) return;
     await onAddMetric(metric);
     setBodyValues({ weight: "", waist: "", chest: "", hip: "" });
-  };
-  const submitInjury = async (event: FormEvent) => {
-    event.preventDefault();
-    const injury = { id: makeId("injury"), zone: injuryZone, note: injuryNote.trim(), pain, createdAt: Date.now() };
-    await onAddInjury(injury);
-    setInjuryNote("");
   };
   const submitGoal = async (event: FormEvent) => {
     event.preventDefault();
@@ -465,56 +456,39 @@ export function ProgressScreen({
         <section className="tracking-panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">MOLESTIAS</p>
-              <h2>Registro de zona</h2>
+              <p className="eyebrow">DOLOR Y MOLESTIAS</p>
+              <h2>Registro de dolor</h2>
             </div>
-            <Icon name="heart" />
+            <Icon name="pain" />
           </div>
           <p className="muted-copy">
-            El plan evita ejercicios que coincidan con esta zona. No es una herramienta de diagnóstico.
+            Cada registro se guarda aparte, con fecha y contexto. Las zonas a evitar de forma permanente se editan en tu
+            perfil. No es una herramienta de diagnóstico.
           </p>
-          <form className="tracking-form" onSubmit={(event) => void submitInjury(event)}>
-            <SelectField
-              label="Zona"
-              value={injuryZone}
-              onChange={setInjuryZone}
-              options={INJURY_ZONES.map((zone) => ({ value: zone, label: labelTitle(zone) }))}
-            />
-            <Field
-              label="Nota opcional"
-              value={injuryNote}
-              onChange={setInjuryNote}
-              placeholder="Describe la molestia sin datos sensibles"
-            />
-            <SelectField
-              label="Molestia percibida"
-              value={String(pain)}
-              onChange={(value) => setPain(Number(value))}
-              options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: `${value} de 5` }))}
-            />
-            <Button variant="secondary" type="submit">
-              Guardar zona
-            </Button>
-          </form>
-          {injuryList.map((injury) => (
-            <div className="injury-row" key={injury.id}>
-              <div>
-                <strong>{labelTitle(injury.zone)}</strong>
-                <small>{injury.note || `Nivel indicado: ${injury.pain} de 5`}</small>
-                {injury.pain >= 4 && (
-                  <small className="error-copy">Si el dolor persiste, consulta a un profesional de la salud.</small>
-                )}
-              </div>
-              <button
-                type="button"
-                className="icon-button danger-icon"
-                aria-label={`Eliminar registro de ${label(injury.zone)}`}
-                onClick={() => void onDeleteInjury(injury)}
-              >
-                <Icon name="trash" size={17} />
-              </button>
-            </div>
-          ))}
+          {activePain.length ? (
+            <ul className="active-pain-summary">
+              {activePain.map(({ zone, entry }) => (
+                <li key={zone}>
+                  <strong>{labelTitle(zone)}</strong> · {entry.intensity ?? "?"}/10 · desde{" "}
+                  {formatDate(entry.at, { day: "numeric", month: "short" })}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>
+              {lastPain
+                ? `Sin dolor activo. Último registro: ${formatDate(lastPain.at, { day: "numeric", month: "short" })}.`
+                : "Todavía no hay registros."}
+            </p>
+          )}
+          {profile.injuries.length > 0 && (
+            <small className="muted-copy">
+              Zonas a evitar en tu perfil: {profile.injuries.map((injury) => label(injury.zone)).join(", ")}.
+            </small>
+          )}
+          <Button variant="secondary" icon="pain" onClick={onOpenPain}>
+            Abrir registro de dolor
+          </Button>
         </section>
       </div>
 

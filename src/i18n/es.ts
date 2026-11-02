@@ -5,6 +5,7 @@
 const VALUE_LABELS: Record<string, string> = {
   // Equipo
   maquinas: "máquinas",
+  "balon medicinal": "balón medicinal",
   "gimnasio completo": "Gimnasio completo",
   // Zonas corporales
   muneca: "muñeca",

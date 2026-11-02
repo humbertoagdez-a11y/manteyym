@@ -15,7 +15,8 @@
     "check:dist": "node scripts/check-dist.mjs",
     "check:accents": "node scripts/check-accents.mjs",
     "icons": "node scripts/make-icons.mjs",
-    "verify": "npm run lint && npm test && npm run build && npm run check:dist && npm run check:accents"
+    "verify": "npm run lint && npm test && npm run build && npm run check:dist && npm run check:accents",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "clsx": "2.1.1",

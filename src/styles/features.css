@@ -13,3 +13,243 @@
   color: var(--text-soft);
   font-size: 13px;
 }
+
+/* ---------- Registro de dolor ---------- */
+.chip-grid,
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+.chip:hover {
+  border-color: var(--accent-strong);
+}
+.chip-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.pain-fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.pain-fieldset legend {
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.intensity-scale {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: 4px;
+}
+.intensity-button {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  /* Verde → ámbar → rojo según el nivel, sin depender solo del color: el número siempre se ve. */
+  background: color-mix(in srgb, hsl(calc(110 - var(--level) * 11) 60% 45%) 22%, var(--surface));
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.intensity-active {
+  outline: 3px solid var(--text);
+  outline-offset: 1px;
+  background: hsl(calc(110 - var(--level) * 11) 60% 45%);
+  color: #fff;
+}
+.safety-alert {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--text);
+}
+.safety-alert svg {
+  flex: 0 0 auto;
+  color: var(--danger);
+}
+.safety-alert p {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+.pain-today-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.pain-today-row strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px;
+}
+.pain-today-actions,
+.pain-actions,
+.end-pain-actions,
+.pain-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pain-hint {
+  display: flex;
+  gap: 10px;
+  margin: -6px 0 18px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: 14px;
+}
+.pain-hint p {
+  margin: 0;
+}
+.pain-icon-button {
+  color: var(--warning);
+}
+.end-pain {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.end-pain p {
+  margin: 0;
+}
+
+.pain-screen,
+.history-screen {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 40px;
+}
+.subscreen-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.subscreen-head h1 {
+  margin: 2px 0 0;
+  font-size: clamp(24px, 6vw, 34px);
+}
+.pain-today-status {
+  margin: -6px 0 0;
+  color: var(--text-soft);
+}
+.active-pain-list {
+  display: grid;
+  gap: 10px;
+}
+.active-pain-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.active-pain-row small,
+.pain-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+.active-pain-summary {
+  margin: 0 0 12px;
+  padding-left: 18px;
+}
+.pain-timeline {
+  display: grid;
+  gap: 12px;
+}
+.pain-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.pain-card-ok {
+  border-left-color: var(--success);
+}
+.pain-card header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pain-card header > div {
+  flex: 1;
+  min-width: 0;
+}
+.pain-badge {
+  flex: 0 0 auto;
+  min-width: 56px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+.pain-badge-pain {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.pain-badge-ok {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+}
+.pain-state {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pain-meta,
+.pain-note,
+.pain-before p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 14px;
+}
+.pain-before summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+.danger-text {
+  color: var(--danger);
+}

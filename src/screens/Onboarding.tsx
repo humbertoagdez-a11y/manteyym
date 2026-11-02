@@ -69,7 +69,7 @@ export function Onboarding({
     <main className="onboarding-shell">
       <div className="onboarding-brand">
         <span className="brand-mark">
-          <Icon name="exercises" size={21} />
+          <Icon name="ejercicios" size={21} />
         </span>
         <strong>ManteYym</strong>
         <span className="eyebrow">ENTRENAMIENTO PERSONAL</span>

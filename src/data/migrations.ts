@@ -140,7 +140,8 @@ const MIGRATIONS: Record<number, Migration> = {
 
 /** Lleva un dataset desde `fromVersion` hasta SCHEMA_VERSION. Lanza si la versión es desconocida. */
 export function migrateDataset(data: Dataset, fromVersion: number, now = Date.now()): Dataset {
-  if (!Number.isInteger(fromVersion) || fromVersion < 1) throw new Error(`Versión de datos desconocida: ${fromVersion}.`);
+  if (!Number.isInteger(fromVersion) || fromVersion < 1)
+    throw new Error(`Versión de datos desconocida: ${fromVersion}.`);
   if (fromVersion > SCHEMA_VERSION) {
     throw new Error(
       `Estos datos son de una versión más nueva de ManteYym (v${fromVersion}). Actualiza la app antes de importarlos.`,

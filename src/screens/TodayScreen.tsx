@@ -3,7 +3,8 @@ import { Icon } from "../components/Icon";
 import { Button, EmptyState } from "../components/ui";
 import { getExerciseHistory, warmupSets, weekStart } from "../engine/fitness";
 import { cx, exerciseName, formatDate, formatted, weekIndex } from "../lib/format";
-import type { Exercise, Profile, Routine, RoutineDay, TrainingBlock, TrainingSession } from "../types";
+import { exercisesLoadingZones } from "../lib/pain";
+import type { Exercise, PainEntry, Profile, Routine, RoutineDay, TrainingBlock, TrainingSession } from "../types";
 import { useState } from "react";
 
 export function TodayScreen({
@@ -18,7 +19,11 @@ export function TodayScreen({
   onBackup,
   backupDue,
   onSaveReadiness,
-  onToast,
+  painToday,
+  activeZones,
+  onNoPain,
+  onLogPain,
+  onOpenPain,
 }: {
   profile: Profile;
   routine?: Routine;
@@ -31,9 +36,25 @@ export function TodayScreen({
   onBackup: () => void;
   backupDue: boolean;
   onSaveReadiness: (values: Record<string, number>) => void;
-  onToast: (message: string) => void;
+  painToday: PainEntry[];
+  activeZones: string[];
+  onNoPain: () => void;
+  onLogPain: () => void;
+  onOpenPain: () => void;
 }) {
-  const [readiness, setReadiness] = useState<Record<string, number>>({ sueno: 3, energia: 3, agujetas: 3, estres: 3 });
+  const [readiness, setReadiness] = useState<Record<string, number>>({
+    sueno: 3,
+    energia: 3,
+    agujetas: 3,
+    estres: 3,
+    animo: 3,
+    horas: 0,
+  });
+  const todayStatus = painToday[0];
+  const dayExercises = (day?.exercises ?? [])
+    .map((plan) => exercises.find((exercise) => exercise.id === plan.exerciseId))
+    .filter((exercise): exercise is Exercise => Boolean(exercise));
+  const loaded = exercisesLoadingZones(dayExercises, activeZones);
   const [showWarmup, setShowWarmup] = useState(false);
   const week = weekIndex(block);
   const totalVolume = sessions
@@ -44,12 +65,18 @@ export function TodayScreen({
     ? getExerciseHistory(sessions, firstPlan.exerciseId)[0]?.item.sets.find((set) => set.completed)
     : undefined;
   const warmups = warmupSets(previous?.weight ?? 0);
-  const readinessLow = readiness.sueno < 3 || readiness.energia < 3 || readiness.agujetas > 3 || readiness.estres > 3;
+  const readinessLow =
+    readiness.sueno < 3 ||
+    readiness.energia < 3 ||
+    readiness.agujetas > 3 ||
+    readiness.estres > 3 ||
+    readiness.animo < 2;
   const readinessDimensions = [
-    ["sueño", "Sueño"],
-    ["energía", "Energía"],
+    ["sueno", "Sueño"],
+    ["energia", "Energía"],
     ["agujetas", "Agujetas"],
-    ["estrés", "Estrés"],
+    ["estres", "Estrés"],
+    ["animo", "Ánimo"],
   ] as const;
   return (
     <div className="screen screen-today">
@@ -147,6 +174,42 @@ export function TodayScreen({
             />
           )}
 
+          <div className="pain-today-row" aria-live="polite">
+            <div>
+              <p className="eyebrow">CHEQUEO DE DOLOR</p>
+              <strong>
+                {todayStatus
+                  ? todayStatus.status === "sin_dolor"
+                    ? "Hoy: sin dolor ✓"
+                    : `Hoy: dolor en ${todayStatus.zones.map(label).join(", ")} (${todayStatus.intensity ?? "?"}/10)`
+                  : "¿Dolor hoy?"}
+              </strong>
+            </div>
+            <div className="pain-today-actions">
+              {todayStatus?.status !== "sin_dolor" && (
+                <Button variant="secondary" icon="smile" onClick={onNoPain}>
+                  Sin dolor
+                </Button>
+              )}
+              <Button variant="quiet" icon="pain" onClick={onLogPain}>
+                Registrar dolor
+              </Button>
+              <button type="button" className="text-action" onClick={onOpenPain}>
+                Historial <Icon name="next" size={16} />
+              </button>
+            </div>
+          </div>
+          {loaded.length > 0 && (
+            <div className="pain-hint" role="note">
+              <Icon name="info" size={17} />
+              <p>
+                Tienes dolor activo en {activeZones.map(label).join(", ")}. Hoy cargan esa zona:{" "}
+                {loaded.map((exercise) => exercise.name).join(", ")}. Si al empezar molesta, usa «Adaptar mi sesión»
+                para ver alternativas. Es una sugerencia; tú decides.
+              </p>
+            </div>
+          )}
+
           <div className="readiness-panel">
             <div className="section-heading compact">
               <div>
@@ -176,6 +239,22 @@ export function TodayScreen({
                 </div>
               ))}
             </div>
+            <div className="readiness-row">
+              <span>Horas de sueño</span>
+              <div className="scale-buttons" role="group" aria-label="Horas de sueño">
+                {[5, 6, 7, 8, 9].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={cx(readiness.horas === value && "scale-active")}
+                    aria-pressed={readiness.horas === value}
+                    onClick={() => setReadiness({ ...readiness, horas: readiness.horas === value ? 0 : value })}
+                  >
+                    {value === 5 ? "≤5" : value === 9 ? "9+" : value}
+                  </button>
+                ))}
+              </div>
+            </div>
             {readinessLow && (
               <p className="notice-copy">
                 <Icon name="info" size={16} /> Considera ampliar el descanso o reducir una serie si hoy no te sientes al
@@ -184,13 +263,7 @@ export function TodayScreen({
             )}
             <div className="readiness-footer">
               <span>1 = bajo · 5 = alto{readiness.agujetas === 1 ? "; menos agujetas" : ""}</span>
-              <Button
-                variant="quiet"
-                onClick={() => {
-                  onSaveReadiness(readiness);
-                  onToast("Chequeo guardado en este dispositivo.");
-                }}
-              >
+              <Button variant="quiet" onClick={() => onSaveReadiness(readiness)}>
                 Guardar chequeo
               </Button>
             </div>

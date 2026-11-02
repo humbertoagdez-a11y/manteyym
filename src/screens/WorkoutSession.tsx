@@ -36,6 +36,7 @@ export function WorkoutSession({
   onOpenExercise,
   onOpenPicker,
   onAdapt,
+  onPain,
   onKeypad,
   onToast,
   onRestFinished,
@@ -52,6 +53,7 @@ export function WorkoutSession({
   onOpenExercise: (exercise: Exercise) => void;
   onOpenPicker: (index: number) => void;
   onAdapt: () => void;
+  onPain: (context: { exerciseId?: string; setId?: string }) => void;
   onKeypad: (config: {
     title: string;
     value: number;
@@ -190,7 +192,7 @@ export function WorkoutSession({
       <div className="workout-topbar">
         <button type="button" className="brand-lockup" onClick={() => onPause()} aria-label="Pausar entrenamiento">
           <span className="brand-mark">
-            <Icon name="exercises" size={19} />
+            <Icon name="ejercicios" size={19} />
           </span>
           <strong>ManteYym</strong>
         </button>
@@ -342,6 +344,15 @@ export function WorkoutSession({
                       </button>
                       <button
                         type="button"
+                        className="icon-button pain-icon-button"
+                        aria-label={`Registrar molestia en ${exercise?.name ?? "este ejercicio"}`}
+                        title="Molestia"
+                        onClick={() => onPain({ exerciseId: item.exerciseId })}
+                      >
+                        <Icon name="pain" />
+                      </button>
+                      <button
+                        type="button"
                         className="icon-button"
                         aria-label="Ver detalles del ejercicio"
                         onClick={() => exercise && onOpenExercise(exercise)}
@@ -467,6 +478,13 @@ export function WorkoutSession({
                               onChange={(note) => mutateSet(exerciseIndex, setIndex, { note })}
                               placeholder="Nota opcional"
                             />
+                            <Button
+                              variant="quiet"
+                              icon="pain"
+                              onClick={() => onPain({ exerciseId: item.exerciseId, setId: set.id })}
+                            >
+                              Molestia en esta serie
+                            </Button>
                           </div>
                         </details>
                       </div>

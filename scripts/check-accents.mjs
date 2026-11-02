@@ -57,6 +57,8 @@ for (const [, sf] of sources) {
         ts.isCaseClause(p) ||
         ts.isLiteralTypeNode(p) ||
         ts.isElementAccessExpression(p) ||
+        // Tuplas [clave, etiqueta]: la clave es un dato (así se rompió el chequeo de disposición).
+        (ts.isArrayLiteralExpression(p) && p.elements[0] === n && ts.isArrayLiteralExpression(p.parent)) ||
         (ts.isCallExpression(p) && ts.isPropertyAccessExpression(p.expression) && LOOKUPS.has(p.expression.name.text));
       if (isData) protectedValues.add(n.text);
     }

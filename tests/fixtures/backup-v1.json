@@ -101,8 +101,24 @@
             "name": "Torso",
             "note": "",
             "exercises": [
-              { "exerciseId": "bench-barbell", "sets": 4, "repsMin": 6, "repsMax": 12, "restSec": 120, "rir": 2, "note": "" },
-              { "exerciseId": "personal-1", "sets": 3, "repsMin": 8, "repsMax": 12, "restSec": 90, "rir": 2, "note": "" }
+              {
+                "exerciseId": "bench-barbell",
+                "sets": 4,
+                "repsMin": 6,
+                "repsMax": 12,
+                "restSec": 120,
+                "rir": 2,
+                "note": ""
+              },
+              {
+                "exerciseId": "personal-1",
+                "sets": 3,
+                "repsMin": 8,
+                "repsMax": 12,
+                "restSec": 90,
+                "rir": 2,
+                "note": ""
+              }
             ]
           },
           {
@@ -110,14 +126,29 @@
             "name": "Pierna",
             "note": "",
             "exercises": [
-              { "exerciseId": "back-squat", "sets": 4, "repsMin": 6, "repsMax": 10, "restSec": 150, "rir": 2, "note": "" }
+              {
+                "exerciseId": "back-squat",
+                "sets": 4,
+                "repsMin": 6,
+                "repsMax": 10,
+                "restSec": 150,
+                "rir": 2,
+                "note": ""
+              }
             ]
           }
         ]
       }
     ],
     "blocks": [
-      { "id": "block-1", "routineId": "routine-1", "name": "Bloque inicial", "startAt": 1785000000000, "weeks": 6, "deloadWeek": 6 }
+      {
+        "id": "block-1",
+        "routineId": "routine-1",
+        "name": "Bloque inicial",
+        "startAt": 1785000000000,
+        "weeks": 6,
+        "deloadWeek": 6
+      }
     ],
     "sessions": [
       {
@@ -140,8 +171,28 @@
             "restSec": 120,
             "note": "",
             "sets": [
-              { "id": "s1-1", "weight": 80, "reps": 10, "type": "normal", "rir": 2, "rpe": null, "note": "", "completed": true, "completedAt": 1786000600000 },
-              { "id": "s1-2", "weight": 80, "reps": 8, "type": "normal", "rir": 1, "rpe": null, "note": "hombro raro", "completed": true, "completedAt": 1786000800000 }
+              {
+                "id": "s1-1",
+                "weight": 80,
+                "reps": 10,
+                "type": "normal",
+                "rir": 2,
+                "rpe": null,
+                "note": "",
+                "completed": true,
+                "completedAt": 1786000600000
+              },
+              {
+                "id": "s1-2",
+                "weight": 80,
+                "reps": 8,
+                "type": "normal",
+                "rir": 1,
+                "rpe": null,
+                "note": "hombro raro",
+                "completed": true,
+                "completedAt": 1786000800000
+              }
             ]
           }
         ]
@@ -166,7 +217,15 @@
             "restSec": 150,
             "note": "",
             "sets": [
-              { "id": "s2-0", "weight": 40, "reps": 8, "type": "calentamiento", "rir": null, "note": "", "completed": true },
+              {
+                "id": "s2-0",
+                "weight": 40,
+                "reps": 8,
+                "type": "calentamiento",
+                "rir": null,
+                "note": "",
+                "completed": true
+              },
               { "id": "s2-1", "weight": 100, "reps": 6, "type": "normal", "rir": 2, "note": "", "completed": true },
               { "id": "s2-2", "weight": 100, "reps": 5, "type": "normal", "rir": 1, "note": "", "completed": false }
             ]
@@ -180,7 +239,9 @@
       { "id": "injury-onb-1", "zone": "muneca", "note": "", "pain": 1, "createdAt": 1785000000000 },
       { "id": "injury-2", "zone": "hombro", "note": "Molesta en press", "pain": 4, "createdAt": 1786100000000 }
     ],
-    "goals": [{ "id": "goal-1", "exerciseId": "bench-barbell", "target": 100, "units": "kg", "createdAt": 1785000000000 }],
+    "goals": [
+      { "id": "goal-1", "exerciseId": "bench-barbell", "target": 100, "units": "kg", "createdAt": 1785000000000 }
+    ],
     "cardio": [{ "id": "cardio-1", "type": "Caminata", "minutes": 30, "intensity": 3, "at": 1786100000000 }],
     "photos": [
       {

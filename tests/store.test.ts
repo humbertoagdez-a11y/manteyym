@@ -33,7 +33,11 @@ async function seedV1Database(stores: Dataset): Promise<void> {
         for (const record of stores[name] ?? []) {
           const value =
             name === "photos" && typeof record.dataUrl === "string"
-              ? { ...record, dataUrl: undefined, blob: new Blob([Buffer.from(record.dataUrl.split(",")[1], "base64")], { type: "image/png" }) }
+              ? {
+                  ...record,
+                  dataUrl: undefined,
+                  blob: new Blob([Buffer.from(record.dataUrl.split(",")[1], "base64")], { type: "image/png" }),
+                }
               : record;
           transaction.objectStore(name).put(value);
         }
@@ -55,13 +59,25 @@ describe("migración v1 → v2 (función pura)", () => {
     expect(migrated.painEntries).toHaveLength(2);
     expect(migrated.injuries).toHaveLength(2);
     const shoulder = migrated.painEntries.find((entry) => entry.id === "pain-v1-injury-2");
-    expect(shoulder).toMatchObject({ status: "dolor", zones: ["hombro"], intensity: 8, ongoing: true, origin: "v1-injury" });
+    expect(shoulder).toMatchObject({
+      status: "dolor",
+      zones: ["hombro"],
+      intensity: 8,
+      ongoing: true,
+      origin: "v1-injury",
+    });
     expect(String(shoulder?.note)).toContain("Molesta en press");
   });
 
   it("recupera los chequeos de disposición que estaban en meta", () => {
     expect(migrated.dailyCheckins).toHaveLength(2);
-    expect(migrated.dailyCheckins[0]).toMatchObject({ dayKey: "2026-09-10", sleepQuality: 2, energy: 3, soreness: 4, stress: 3 });
+    expect(migrated.dailyCheckins[0]).toMatchObject({
+      dayKey: "2026-09-10",
+      sleepQuality: 2,
+      energy: 3,
+      soreness: 4,
+      stress: 3,
+    });
     expect(migrated.meta.some((record) => String(record.id).startsWith("readiness-"))).toBe(false);
     expect(migrated.meta.find((record) => record.id === "active-routine")).toBeTruthy();
   });
@@ -165,7 +181,13 @@ describe("IndexedDB", () => {
 
   it("una importación se puede deshacer y vuelve exactamente a los datos previos", async () => {
     await store.initializeStore();
-    await store.saveRecord("goals", { id: "goal-local", exerciseId: "deadlift", target: 180, units: "kg", createdAt: 1 });
+    await store.saveRecord("goals", {
+      id: "goal-local",
+      exerciseId: "deadlift",
+      target: 180,
+      units: "kg",
+      createdAt: 1,
+    });
     const before = store.getSnapshot();
     await store.importBackup(clone(fixture));
     expect(store.rollbackSavedAt()).toBeTypeOf("number");

@@ -92,7 +92,7 @@ export function ExerciseVisual({ exercise, compact = false }: { exercise: Exerci
   return (
     <div className={cx("visual-guide", compact && "visual-guide-compact")}>
       <div className="guide-symbol">
-        <Icon name="exercises" size={compact ? 20 : 35} />
+        <Icon name="ejercicios" size={compact ? 20 : 35} />
       </div>
       {!compact && (
         <>

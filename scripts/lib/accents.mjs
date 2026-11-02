@@ -180,6 +180,11 @@ export const PROTECTED_VALUES = new Set([
   "tiron-vertical",
   "perdida_grasa",
   "5 dias",
+  "balon medicinal",
+  // Claves del chequeo de disposición v1 (se migran a dailyCheckins).
+  "sueno",
+  "energia",
+  "estres",
 ]);
 
 export function applyCase(source, target) {

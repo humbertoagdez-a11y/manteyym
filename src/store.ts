@@ -301,7 +301,10 @@ function withChange(current: AppSnapshot, store: StoreName, put?: { id: string }
   return { ...current, [key]: next } as AppSnapshot;
 }
 
-export type Write = { store: StoreName; put: { id: string } } | { store: StoreName; delete: string };
+/** Escritura tipada por store: `put` debe ser un registro válido de ese store. */
+export type Write = {
+  [S in StoreName]: { store: S; put: StoreMap[S] } | { store: S; delete: string };
+}[StoreName];
 
 /**
  * Aplica varias escrituras y entradas de bitácora en UNA transacción: o se guarda todo o nada.
@@ -333,7 +336,7 @@ export async function commit(writes: Write[], audit: Omit<AuditEntry, "id" | "at
 }
 
 export async function saveRecord<S extends StoreName>(store: S, record: StoreMap[S]): Promise<void> {
-  await commit([{ store, put: record as { id: string } }]);
+  await commit([{ store, put: record } as Write]);
 }
 
 export async function saveMany<S extends StoreName>(store: S, records: StoreMap[S][]): Promise<void> {
@@ -348,7 +351,7 @@ export async function saveMany<S extends StoreName>(store: S, records: StoreMap[
 export async function deleteRecord(store: StoreName, id: string): Promise<void> {
   if (store === "profile" || store === "settings")
     throw new Error("El perfil y los ajustes no se borran por separado.");
-  await commit([{ store, delete: id }]);
+  await commit([{ store, delete: id } as Write]);
 }
 
 // Sin FileReader: funciona igual en el navegador y en las pruebas (Node).

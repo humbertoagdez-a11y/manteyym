@@ -179,7 +179,16 @@ export function detectStagnation(history: TrainingSession[], exerciseId: string)
   return top[0] <= top[1] && top[1] <= top[2];
 }
 
+// PENDIENTE DE REVISIÓN HUMANA: este mapeo zona → patrones es orientativo, no clínico.
+// Se usa solo para SUGERIR alternativas; nunca para decidir por el usuario.
 const affectedPatterns: Record<string, Pattern[]> = {
+  cuello: ["empuje-vertical"],
+  "espalda alta": ["tiron-horizontal", "tiron-vertical"],
+  "espalda baja": ["bisagra", "sentadilla"],
+  pecho: ["empuje-horizontal"],
+  mano: ["empuje-horizontal", "empuje-vertical", "tiron-horizontal"],
+  pie: ["sentadilla", "zancada"],
+  abdomen: ["core"],
   hombro: ["empuje-vertical", "empuje-horizontal", "tiron-vertical"],
   hombros: ["empuje-vertical", "empuje-horizontal", "tiron-vertical"],
   rodilla: ["sentadilla", "zancada"],
@@ -193,7 +202,28 @@ const affectedPatterns: Record<string, Pattern[]> = {
   cadera: ["bisagra", "sentadilla", "zancada"],
 };
 
-export function isExerciseCompatible(exercise: Exercise, profile: Profile, respectExclusions = true): boolean {
+/** Patrones que cargan una zona corporal (ver advertencia en affectedPatterns). */
+export function patternsForZone(zone: string): Pattern[] {
+  const normalized = normalizeText(zone);
+  return [
+    ...new Set(
+      Object.entries(affectedPatterns)
+        .filter(([key]) => normalized.includes(key))
+        .flatMap(([, patterns]) => patterns),
+    ),
+  ];
+}
+
+/**
+ * `extraZones`: zonas con dolor activo (registro de dolor) que se suman a las zonas a evitar del perfil.
+ * Reemplaza el viejo truco de inyectar una lesión con id "temporary".
+ */
+export function isExerciseCompatible(
+  exercise: Exercise,
+  profile: Profile,
+  respectExclusions = true,
+  extraZones: string[] = [],
+): boolean {
   const chosen = profile.equipment.map(normalizeText);
   const hasGym = chosen.some((item) => item.includes("gimnasio completo"));
   const hasBodyweight = chosen.includes("peso corporal");
@@ -214,7 +244,7 @@ export function isExerciseCompatible(exercise: Exercise, profile: Profile, respe
     profile.exclusions.some((term) => term.trim() && normalizeText(exercise.name).includes(normalizeText(term)))
   )
     return false;
-  const injuries = profile.injuries.map((injury) => normalizeText(injury.zone));
+  const injuries = [...profile.injuries.map((injury) => injury.zone), ...extraZones].map(normalizeText);
   if (
     injuries.some((zone) =>
       Object.entries(affectedPatterns).some(
@@ -478,7 +508,7 @@ function remoteEquipment(value: string | null | undefined): string[] {
     cable: "poleas",
     machine: "maquinas",
     "e-z curl bar": "barra Z",
-    "medicine ball": "balón medicinal",
+    "medicine ball": "balon medicinal",
     kettlebells: "pesas rusas",
     "foam roll": "rodillo",
     bands: "bandas",

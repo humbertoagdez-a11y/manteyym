@@ -1,19 +1,22 @@
 import { label, labelTitle } from "../i18n/es";
 import { Button, DialogFrame, SelectField } from "../components/ui";
-import { INJURY_ZONES } from "../constants";
+import { PAIN_ZONES } from "../lib/pain";
 import { getSnapshot } from "../store";
 import { useState } from "react";
 
 export function AdaptDialog({
+  activeZones,
   onClose,
   onApply,
 }: {
+  activeZones: string[];
   onClose: () => void;
   onApply: (result: { minutes: number; reason: string; zone: string; equipment: string; explanation: string }) => void;
 }) {
   const [reason, setReason] = useState("tiempo");
   const [minutes, setMinutes] = useState(30);
-  const [zone, setZone] = useState("hombro");
+  const [zone, setZone] = useState(activeZones[0] ?? "hombro");
+  const zoneOptions = [...activeZones, ...PAIN_ZONES.filter((item) => !activeZones.includes(item) && item !== "otra")];
   const [equipment, setEquipment] = useState("maquinas");
   // El cambio real lo aplica App.handleAdapt; acá solo se arma la explicación para el usuario.
   const apply = () => {
@@ -56,7 +59,10 @@ export function AdaptDialog({
             label="Zona a evitar"
             value={zone}
             onChange={setZone}
-            options={INJURY_ZONES.map((value) => ({ value, label: labelTitle(value) }))}
+            options={zoneOptions.map((value) => ({
+              value,
+              label: activeZones.includes(value) ? `${labelTitle(value)} (dolor activo)` : labelTitle(value),
+            }))}
           />
         )}
         {reason === "equipo" && (

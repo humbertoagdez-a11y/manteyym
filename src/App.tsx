@@ -1,4 +1,5 @@
 import { Icon } from "./components/Icon";
+import { PainSheet, type PainSheetConfig } from "./components/PainSheet";
 import { Button, DialogFrame, LocalBadge, NumericPad } from "./components/ui";
 import { APP_VERSION, DAY_MS, NAV_ITEMS } from "./constants";
 import { FREE_DB } from "./data/exerciseSource";
@@ -11,6 +12,15 @@ import {
   sessionVolume,
 } from "./engine/fitness";
 import { downscaleImage } from "./lib/images";
+import {
+  activePainZones,
+  dayKey,
+  newPainEntry,
+  painSummary,
+  redFlags,
+  SAFETY_MESSAGE,
+  todaysEntries,
+} from "./lib/pain";
 import { allTargetSets, completedSets, currentDay, cx, formatDate, weekIndex } from "./lib/format";
 import { AdaptDialog } from "./screens/AdaptDialog";
 import { ExerciseBrowser } from "./screens/ExerciseBrowser";
@@ -18,6 +28,7 @@ import { ExerciseCreateForm } from "./screens/ExerciseCreateForm";
 import { ExerciseDetail } from "./screens/ExerciseDetail";
 import { ExercisePicker } from "./screens/ExercisePicker";
 import { Onboarding } from "./screens/Onboarding";
+import { PainScreen } from "./screens/PainScreen";
 import { ProgressScreen } from "./screens/ProgressScreen";
 import { RoutineEditor } from "./screens/RoutineEditor";
 import { RoutineListScreen } from "./screens/RoutineListScreen";
@@ -26,6 +37,7 @@ import { SettingsScreen } from "./screens/SettingsScreen";
 import { TodayScreen } from "./screens/TodayScreen";
 import { WorkoutSession } from "./screens/WorkoutSession";
 import {
+  commit,
   deleteRecord,
   exportBackup,
   getSnapshot,
@@ -42,8 +54,10 @@ import {
 } from "./store";
 import type {
   ActiveSession,
+  DailyCheckin,
   Exercise,
   LoggedSet,
+  PainEntry,
   Profile,
   Routine,
   RoutineDay,
@@ -88,6 +102,8 @@ function App() {
     onSave: (value: number) => void;
   } | null>(null);
   const [adaptOpen, setAdaptOpen] = useState(false);
+  const [subScreen, setSubScreen] = useState<"dolor" | null>(null);
+  const [painSheet, setPainSheet] = useState<PainSheetConfig | null>(null);
   const [summary, setSummary] = useState<TrainingSession | null>(null);
   const [backupCandidate, setBackupCandidate] = useState<{
     value: unknown;
@@ -115,6 +131,7 @@ function App() {
   const lastBackupAt = Number(state.meta.find((record) => record.id === "lastBackupAt")?.at ?? 0);
   const firstSeen = Number(state.meta.find((record) => record.id === "firstSeen")?.at ?? clockNow);
   const backupDue = clockNow - (lastBackupAt || firstSeen) > 14 * DAY_MS;
+  const activeZones = activePainZones(state.painEntries).map((item) => item.zone);
 
   const notify = (message: string) => {
     setToast(message);
@@ -294,6 +311,146 @@ function App() {
       });
   };
 
+  // ---- Registro de dolor (append-only; cada edición deja una revisión en la bitácora) ----
+  const savePain = async (entry: PainEntry) => {
+    const previous = getSnapshot().painEntries.find((item) => item.id === entry.id);
+    const now = Date.now();
+    const next: PainEntry = previous ? { ...entry, updatedAt: now, revision: (previous.revision ?? 1) + 1 } : entry;
+    try {
+      await commit(
+        [{ store: "painEntries", put: next }],
+        [
+          previous
+            ? {
+                entity: "painEntries",
+                entityId: next.id,
+                action: "update",
+                summary: `Dolor editado: ${painSummary(previous)} → ${painSummary(next)}`,
+                before: previous,
+                after: next,
+              }
+            : { entity: "painEntries", entityId: next.id, action: "create", summary: `Registro: ${painSummary(next)}` },
+        ],
+      );
+      setPainSheet(null);
+      notify(
+        redFlags(next).length ? SAFETY_MESSAGE : previous ? "Registro actualizado." : "Registro de dolor guardado.",
+      );
+    } catch (error) {
+      notify(storageErrorMessage(error));
+    }
+  };
+
+  const logNoPain = async (when: PainEntry["when"] = "antes", context?: PainEntry["context"]) => {
+    const entry = newPainEntry({ status: "sin_dolor", when, context });
+    try {
+      await commit(
+        [{ store: "painEntries", put: entry }],
+        [{ entity: "painEntries", entityId: entry.id, action: "create", summary: "Registro: sin dolor" }],
+      );
+      notify("Anotado: sin dolor.");
+    } catch (error) {
+      notify(storageErrorMessage(error));
+    }
+  };
+
+  const resolvePain = (entry: PainEntry) => void savePain({ ...entry, ongoing: false, resolvedAt: Date.now() });
+
+  const deletePain = async (entry: PainEntry) => {
+    if (!window.confirm("¿Eliminar este registro? Quedará una copia en la bitácora de cambios.")) return;
+    try {
+      await commit(
+        [{ store: "painEntries", delete: entry.id }],
+        [
+          {
+            entity: "painEntries",
+            entityId: entry.id,
+            action: "delete",
+            summary: `Eliminado: ${painSummary(entry)}`,
+            before: entry,
+          },
+        ],
+      );
+      notify("Registro eliminado.");
+    } catch (error) {
+      notify(storageErrorMessage(error));
+    }
+  };
+
+  const openPainSheet = (config: Partial<PainSheetConfig> = {}) =>
+    setPainSheet({ title: "Registrar dolor", when: "fuera_de_entreno", suggestedZones: activeZones, ...config });
+
+  /** Id estable de la sesión en curso, para vincular dolor y chequeo antes de que termine. */
+  const activeSessionId = () => {
+    const active = getSnapshot().activeSession;
+    if (!active) return undefined;
+    if (active.sessionId) return active.sessionId;
+    const sessionId = makeId("session");
+    updateActive((current) => ({ ...current, sessionId: current.sessionId ?? sessionId }));
+    return sessionId;
+  };
+
+  // ---- Chequeo previo (uno por día; se vincula a la sesión al terminar) ----
+  const saveCheckin = async (values: Record<string, number>) => {
+    const now = Date.now();
+    const key = dayKey(now);
+    const previous = getSnapshot().dailyCheckins.find((item) => item.dayKey === key && !item.sessionId);
+    const checkin: DailyCheckin = {
+      ...(previous ?? { id: makeId("checkin"), createdAt: now }),
+      at: now,
+      dayKey: key,
+      sleepQuality: values.sueno,
+      energy: values.energia,
+      soreness: values.agujetas,
+      stress: values.estres,
+      sleepHours: values.horas || undefined,
+      mood: values.animo || undefined,
+      updatedAt: now,
+      revision: (previous?.revision ?? 0) + 1,
+    };
+    try {
+      await commit(
+        [{ store: "dailyCheckins", put: checkin }],
+        [
+          {
+            entity: "dailyCheckins",
+            entityId: checkin.id,
+            action: previous ? "update" : "create",
+            summary: "Chequeo de disposición",
+            before: previous,
+            after: checkin,
+          },
+        ],
+      );
+      notify("Chequeo guardado; se vinculará a tu próxima sesión de hoy.");
+    } catch (error) {
+      notify(storageErrorMessage(error));
+    }
+  };
+
+  /** Cierre de sesión: "sin dolor" se guarda al toque; "con molestia" abre la hoja vinculada a la sesión. */
+  const endSessionPain = async (session: TrainingSession, status: "sin_dolor" | "con_molestia") => {
+    const now = Date.now();
+    const updated: TrainingSession = {
+      ...session,
+      endPain: status,
+      updatedAt: now,
+      revision: (session.revision ?? 1) + 1,
+    };
+    try {
+      await commit(
+        [{ store: "sessions", put: updated }],
+        [{ entity: "sessions", entityId: session.id, action: "update", summary: "Estado de dolor al terminar" }],
+      );
+      setSummary(updated);
+    } catch (error) {
+      notify(storageErrorMessage(error));
+      return;
+    }
+    if (status === "sin_dolor") await logNoPain("despues", { sessionId: session.id });
+    else openPainSheet({ title: "¿Dónde quedó la molestia?", when: "despues", context: { sessionId: session.id } });
+  };
+
   const setRoutineActive = async (routine: Routine) => {
     await safePersist("meta", { id: "active-routine", routineId: routine.id });
     if (!getSnapshot().blocks.some((block) => block.routineId === routine.id)) {
@@ -419,6 +576,7 @@ function App() {
     });
     const active: ActiveSession = {
       id: "current",
+      sessionId: makeId("session"),
       routineId: activeRoutine?.id ?? "sin-rutina",
       dayId: day.id,
       dayName: day.name,
@@ -457,8 +615,15 @@ function App() {
       )
         return;
       const endedAt = Date.now();
+      const checkin = getSnapshot().dailyCheckins.find(
+        (item) => item.dayKey === dayKey(active.startedAt) && !item.sessionId,
+      );
       const record: TrainingSession = {
-        id: makeId("session"),
+        id: active.sessionId ?? makeId("session"),
+        createdAt: endedAt,
+        updatedAt: endedAt,
+        revision: 1,
+        checkinId: checkin?.id,
         routineId: active.routineId,
         dayId: active.dayId,
         dayName: active.dayName,
@@ -470,8 +635,25 @@ function App() {
         notes: active.notes,
         exercises: active.exercises,
       };
-      const saved = await safePersist("sessions", record);
-      if (!saved) return;
+      try {
+        await commit(
+          [
+            { store: "sessions", put: record },
+            ...(checkin ? [{ store: "dailyCheckins" as const, put: { ...checkin, sessionId: record.id } }] : []),
+          ],
+          [
+            {
+              entity: "sessions",
+              entityId: record.id,
+              action: "create",
+              summary: `Sesión ${record.dayName} terminada`,
+            },
+          ],
+        );
+      } catch (error) {
+        notify(storageErrorMessage(error));
+        return;
+      }
       await deleteRecord("activeSession", "current");
       const previous = getSnapshot().sessions.find(
         (session) => session.dayId === record.dayId && session.id !== record.id,
@@ -525,16 +707,11 @@ function App() {
         }));
       }
       if (change.reason === "molestia") {
-        const adaptedProfile = {
-          ...getSnapshot().profile,
-          injuries: [
-            ...getSnapshot().profile.injuries,
-            { id: "temporary", zone: change.zone, note: "", pain: 1, createdAt: Date.now() },
-          ],
-        };
+        // Sugerencia elegida por el usuario: se quitan los ejercicios que cargan la zona indicada.
+        const profile = getSnapshot().profile;
         exercises = exercises.filter((item) => {
           const movement = getSnapshot().exercises.find((exercise) => exercise.id === item.exerciseId);
-          return !movement || isExerciseCompatible(movement, adaptedProfile);
+          return !movement || isExerciseCompatible(movement, profile, true, [change.zone]);
         });
       }
       if (change.reason === "equipo") {
@@ -763,7 +940,7 @@ function App() {
     return (
       <main className="loading-screen">
         <span className="brand-mark">
-          <Icon name="exercises" size={21} />
+          <Icon name="ejercicios" size={21} />
         </span>
         <h1>No se pudo iniciar ManteYym</h1>
         <p>{initError}</p>
@@ -776,7 +953,7 @@ function App() {
     return (
       <main className="loading-screen">
         <span className="brand-mark">
-          <Icon name="exercises" size={21} />
+          <Icon name="ejercicios" size={21} />
         </span>
         <p className="eyebrow">MANTEYYM</p>
         <div className="loading-line" />
@@ -810,9 +987,31 @@ function App() {
           onOpenExercise={setExerciseDetail}
           onOpenPicker={openSessionPicker}
           onAdapt={() => setAdaptOpen(true)}
+          onPain={(context) =>
+            openPainSheet({
+              title: "Molestia durante la sesión",
+              when: "durante",
+              quick: true,
+              context: { sessionId: activeSessionId(), ...context },
+            })
+          }
           onKeypad={setKeypad}
           onToast={notify}
           onRestFinished={() => updateActive((active) => ({ ...active, restEndsAt: null }))}
+        />
+      );
+    if (subScreen === "dolor")
+      return (
+        <PainScreen
+          entries={state.painEntries}
+          sessions={state.sessions}
+          catalog={state.exercises}
+          onBack={() => setSubScreen(null)}
+          onLog={() => openPainSheet()}
+          onNoPain={() => void logNoPain("fuera_de_entreno")}
+          onEdit={(entry) => openPainSheet({ title: "Editar registro", initial: entry, when: entry.when })}
+          onResolve={resolvePain}
+          onDelete={(entry) => void deletePain(entry)}
         />
       );
     if (tab === "hoy")
@@ -828,14 +1027,12 @@ function App() {
           onOpenRoutines={() => setTab("rutinas")}
           onBackup={() => void downloadBackup()}
           backupDue={backupDue}
-          onSaveReadiness={(values) =>
-            void safePersist("meta", {
-              id: `readiness-${new Date().toISOString().slice(0, 10)}`,
-              ...values,
-              at: Date.now(),
-            })
-          }
-          onToast={notify}
+          onSaveReadiness={(values) => void saveCheckin(values)}
+          painToday={todaysEntries(state.painEntries, clockNow)}
+          activeZones={activeZones}
+          onNoPain={() => void logNoPain("antes")}
+          onLogPain={() => openPainSheet({ when: "antes" })}
+          onOpenPain={() => setSubScreen("dolor")}
         />
       );
     if (tab === "rutinas") {
@@ -920,39 +1117,13 @@ function App() {
           sessions={state.sessions}
           catalog={state.exercises}
           metrics={state.bodyMetrics}
-          injuries={state.injuries}
+          painEntries={state.painEntries}
+          onOpenPain={() => setSubScreen("dolor")}
           goals={state.goals}
           cardio={state.cardio}
           photos={state.photos}
           onOpenExercise={setExerciseDetail}
           onAddMetric={(metric) => safePersist("bodyMetrics", metric).then(() => notify("Medición guardada."))}
-          onAddInjury={async (injury) => {
-            const profile = getSnapshot().profile;
-            await Promise.all(
-              getSnapshot()
-                .injuries.filter((item) => item.zone === injury.zone)
-                .map((item) => deleteRecord("injuries", item.id)),
-            );
-            await safePersist("injuries", injury);
-            await safePersist("profile", {
-              ...profile,
-              injuries: [...profile.injuries.filter((item) => item.zone !== injury.zone), injury],
-            });
-            notify(
-              injury.pain >= 4
-                ? "Molestia guardada. Si persiste, consulta a un profesional de la salud."
-                : "Zona guardada; se revisarán los movimientos afectados.",
-            );
-          }}
-          onDeleteInjury={async (injury) => {
-            await deleteRecord("injuries", injury.id);
-            const profile = getSnapshot().profile;
-            await safePersist("profile", {
-              ...profile,
-              injuries: profile.injuries.filter((item) => item.id !== injury.id),
-            });
-            notify("Registro de molestia eliminado.");
-          }}
           onAddGoal={(goal) => safePersist("goals", goal).then(() => notify("Objetivo guardado."))}
           onDeleteGoal={(goal) => deleteRecord("goals", goal.id).then(() => notify("Objetivo eliminado."))}
           onAddCardio={(record) => safePersist("cardio", record).then(() => notify("Sesión de cardio guardada."))}
@@ -1000,7 +1171,7 @@ function App() {
         <header className="app-header">
           <div className="app-brand">
             <span className="brand-mark">
-              <Icon name="exercises" size={19} />
+              <Icon name="ejercicios" size={19} />
             </span>
             <strong>ManteYym</strong>
             <span className="brand-divider" />
@@ -1043,7 +1214,7 @@ function App() {
           <aside className="desktop-sidebar">
             <div className="sidebar-brand">
               <span className="brand-mark">
-                <Icon name="exercises" size={20} />
+                <Icon name="ejercicios" size={20} />
               </span>
               <div>
                 <strong>ManteYym</strong>
@@ -1060,6 +1231,7 @@ function App() {
                   onClick={() => {
                     setTab(item.id);
                     setEditingRoutineId(null);
+                    setSubScreen(null);
                   }}
                 >
                   <Icon name={item.icon} size={20} />
@@ -1094,6 +1266,7 @@ function App() {
               onClick={() => {
                 setTab(item.id);
                 setEditingRoutineId(null);
+                setSubScreen(null);
               }}
             >
               <Icon name={item.icon} size={20} />
@@ -1133,8 +1306,12 @@ function App() {
         />
       )}
       {keypad && <NumericPad config={keypad} onClose={() => setKeypad(null)} />}
+      {painSheet && (
+        <PainSheet config={painSheet} onSave={(entry) => void savePain(entry)} onClose={() => setPainSheet(null)} />
+      )}
       {state.activeSession && adaptOpen && (
         <AdaptDialog
+          activeZones={activeZones}
           onClose={() => setAdaptOpen(false)}
           onApply={(change) => {
             handleAdapt(change);
@@ -1149,6 +1326,7 @@ function App() {
           profile={state.profile}
           exercises={state.exercises}
           onClose={() => setSummary(null)}
+          onEndPain={(status) => void endSessionPain(summary, status)}
           onProgress={() => {
             setSummary(null);
             setTab("progreso");
