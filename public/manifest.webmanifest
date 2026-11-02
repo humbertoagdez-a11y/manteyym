@@ -1,0 +1,24 @@
+{
+  "id": "./",
+  "name": "ManteYym - Entrenador personal",
+  "short_name": "ManteYym",
+  "description": "Tu entrenador personal de gimnasio, privado y disponible sin conexion.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#10130f",
+  "background_color": "#10130f",
+  "categories": ["health", "fitness"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Entrenamiento de hoy", "short_name": "Hoy", "url": "./?shortcut=hoy", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Progreso", "short_name": "Progreso", "url": "./?shortcut=progreso", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}
