@@ -1,0 +1,15 @@
+/* Estilos de las funciones agregadas en la auditoría (registro de dolor, historial, demos). */
+
+.rollback-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 13px;
+}

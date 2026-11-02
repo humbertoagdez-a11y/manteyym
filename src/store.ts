@@ -1,13 +1,17 @@
 import { LOCAL_CATALOG } from "./data/catalog";
+import { migrateDataset, SCHEMA_VERSION, STORES_V1, STORES_V2, type Dataset } from "./data/migrations";
 import { makeId } from "./engine/fitness";
 import type {
   ActiveSession,
+  AuditEntry,
   BodyMetric,
   CardioRecord,
+  DailyCheckin,
   Exercise,
   GoalRecord,
   Injury,
   MetaRecord,
+  PainEntry,
   PhotoRecord,
   Profile,
   Routine,
@@ -19,22 +23,8 @@ import type {
 } from "./types";
 
 export const DB_NAME = "manteyym-local";
-export const SCHEMA_VERSION = 1;
-const STORE_NAMES: StoreName[] = [
-  "profile",
-  "settings",
-  "exercises",
-  "routines",
-  "blocks",
-  "sessions",
-  "activeSession",
-  "bodyMetrics",
-  "injuries",
-  "goals",
-  "cardio",
-  "photos",
-  "meta",
-];
+export { SCHEMA_VERSION };
+const STORE_NAMES: StoreName[] = [...STORES_V2];
 
 export interface AppSnapshot {
   profile: Profile;
@@ -50,6 +40,9 @@ export interface AppSnapshot {
   cardio: CardioRecord[];
   photos: PhotoRecord[];
   meta: MetaRecord[];
+  painEntries: PainEntry[];
+  dailyCheckins: DailyCheckin[];
+  auditLog: AuditEntry[];
 }
 
 export const defaultProfile: Profile = {
@@ -96,6 +89,9 @@ const blankSnapshot: AppSnapshot = {
   cardio: [],
   photos: [],
   meta: [],
+  painEntries: [],
+  dailyCheckins: [],
+  auditLog: [],
 };
 
 let snapshot = blankSnapshot;
@@ -114,20 +110,18 @@ function publish(next: AppSnapshot) {
   listeners.forEach((listener) => listener());
 }
 
+let upgradedFromVersion: number | null = null;
+
 function openDatabase(): Promise<IDBDatabase> {
   if (databasePromise) return databasePromise;
   databasePromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, SCHEMA_VERSION);
     request.onupgradeneeded = (event) => {
       const database = request.result;
-      const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
-      // Migracion inicial desde version 0: el esquema se mantiene en una unica rutina versionada.
-      if (oldVersion < 1) {
-        for (const name of STORE_NAMES)
-          if (!database.objectStoreNames.contains(name)) database.createObjectStore(name, { keyPath: "id" });
-        const metaStore = request.transaction?.objectStore("meta");
-        metaStore?.put({ id: "schema", version: 1, migratedAt: Date.now() });
-      }
+      upgradedFromVersion = (event as IDBVersionChangeEvent).oldVersion;
+      // La estructura (stores) se crea acá; la migración de datos corre después en migrateStoredData.
+      for (const name of STORE_NAMES)
+        if (!database.objectStoreNames.contains(name)) database.createObjectStore(name, { keyPath: "id" });
     };
     request.onsuccess = () => {
       const database = request.result;
@@ -144,6 +138,35 @@ function openDatabase(): Promise<IDBDatabase> {
     };
   });
   return databasePromise;
+}
+
+function sameRecords(a: unknown[], b: unknown[]): boolean {
+  return a.length === b.length && a.every((item, index) => item === b[index]);
+}
+
+/** Lleva los datos guardados a SCHEMA_VERSION en una única transacción (todo o nada). */
+async function migrateStoredData(database: IDBDatabase): Promise<void> {
+  const meta = await readStore(database, "meta");
+  const schema = meta.find((record) => record.id === "schema");
+  const fresh = !schema && (upgradedFromVersion === 0 || upgradedFromVersion === null);
+  const storedVersion = schema ? Number(schema.version) || 1 : fresh ? SCHEMA_VERSION : 1;
+  if (storedVersion >= SCHEMA_VERSION) return;
+  const before: Dataset = {};
+  for (const name of STORE_NAMES)
+    before[name] = (await readStore(database, name)) as unknown as Record<string, unknown>[];
+  const after = migrateDataset(before, storedVersion);
+  after.meta = [
+    ...after.meta.filter((record) => record.id !== "schema"),
+    { id: "schema", version: SCHEMA_VERSION, migratedAt: Date.now(), from: storedVersion },
+  ];
+  const transaction = database.transaction(STORE_NAMES, "readwrite");
+  for (const name of STORE_NAMES) {
+    if (sameRecords(before[name] ?? [], after[name] ?? [])) continue;
+    const store = transaction.objectStore(name);
+    store.clear();
+    after[name].forEach((record) => store.put(record));
+  }
+  await transactionDone(transaction);
 }
 
 function transactionDone(transaction: IDBTransaction): Promise<void> {
@@ -179,9 +202,12 @@ async function hydrateFromDatabase(): Promise<AppSnapshot> {
   >;
   const profile = (records.profile as Profile[]).find((item) => item.id === "main") ?? defaultProfile;
   const settings = (records.settings as Settings[]).find((item) => item.id === "main") ?? defaultSettings;
+  // El catálogo base vive en el código: una copia "local" en la base nunca pisa a la del código.
   const exercises = new Map<string, Exercise>();
+  (records.exercises as Exercise[])
+    .filter((exercise) => exercise.source !== "local")
+    .forEach((exercise) => exercises.set(exercise.id, exercise));
   LOCAL_CATALOG.forEach((exercise) => exercises.set(exercise.id, exercise));
-  (records.exercises as Exercise[]).forEach((exercise) => exercises.set(exercise.id, exercise));
   return {
     profile,
     settings,
@@ -196,21 +222,23 @@ async function hydrateFromDatabase(): Promise<AppSnapshot> {
     cardio: [...(records.cardio as CardioRecord[])].sort((a, b) => b.at - a.at),
     photos: [...(records.photos as PhotoRecord[])].sort((a, b) => b.at - a.at),
     meta: records.meta as MetaRecord[],
+    painEntries: [...(records.painEntries as PainEntry[])].sort((a, b) => b.at - a.at),
+    dailyCheckins: [...(records.dailyCheckins as DailyCheckin[])].sort((a, b) => b.at - a.at),
+    auditLog: [...(records.auditLog as AuditEntry[])].sort((a, b) => b.at - a.at),
   };
 }
 
 export async function initializeStore(): Promise<{ state: AppSnapshot; persistent: boolean | null }> {
   const database = await openDatabase();
+  await migrateStoredData(database);
   const profiles = await readStore(database, "profile");
   const settings = await readStore(database, "settings");
-  const exercises = await readStore(database, "exercises");
   const meta = await readStore(database, "meta");
-  const transaction = database.transaction(["profile", "settings", "exercises", "meta"], "readwrite");
+  const transaction = database.transaction(["profile", "settings", "meta"], "readwrite");
   const profileStore = transaction.objectStore("profile");
   const settingsStore = transaction.objectStore("settings");
   if (!profiles.some((record) => record.id === "main")) profileStore.put(defaultProfile);
   if (!settings.some((record) => record.id === "main")) settingsStore.put(defaultSettings);
-  if (!exercises.length) LOCAL_CATALOG.forEach((exercise) => transaction.objectStore("exercises").put(exercise));
   const metaStore = transaction.objectStore("meta");
   if (!meta.some((record) => record.id === "firstSeen")) metaStore.put({ id: "firstSeen", at: Date.now() });
   if (!meta.some((record) => record.id === "schema"))
@@ -242,20 +270,70 @@ export function storageErrorMessage(error: unknown): string {
     : "No se pudo guardar en el dispositivo. Comprueba el espacio disponible.";
 }
 
-export async function saveRecord<S extends StoreName>(store: S, record: StoreMap[S]): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(store, "readwrite");
-  transaction.objectStore(store).put(record);
-  await transactionDone(transaction);
-  const id = (record as { id: string }).id;
-  if (store === "profile") publish({ ...snapshot, profile: record as Profile });
-  else if (store === "settings") publish({ ...snapshot, settings: record as Settings });
-  else if (store === "activeSession") publish({ ...snapshot, activeSession: record as ActiveSession });
-  else {
-    const key = store as Exclude<StoreName, "profile" | "settings" | "activeSession">;
-    const values = (snapshot[key] as { id: string }[]).filter((item) => item.id !== id);
-    publish({ ...snapshot, [key]: [record, ...values] } as AppSnapshot);
+type ListStore = Exclude<StoreName, "profile" | "settings" | "activeSession">;
+
+// Orden de presentación de cada lista en el snapshot (más reciente primero).
+const SORT_KEYS: Partial<Record<ListStore, string>> = {
+  sessions: "endedAt",
+  bodyMetrics: "at",
+  cardio: "at",
+  photos: "at",
+  painEntries: "at",
+  dailyCheckins: "at",
+  auditLog: "at",
+};
+
+function withChange(current: AppSnapshot, store: StoreName, put?: { id: string }, deleteId?: string): AppSnapshot {
+  if (store === "profile") return put ? { ...current, profile: put as Profile } : current;
+  if (store === "settings") return put ? { ...current, settings: put as Settings } : current;
+  if (store === "activeSession") return { ...current, activeSession: put ? (put as ActiveSession) : null };
+  const key = store as ListStore;
+  const removeId = put?.id ?? deleteId;
+  const values = (current[key] as { id: string }[]).filter((item) => item.id !== removeId);
+  const next = put ? [put, ...values] : values;
+  const sortKey = SORT_KEYS[key];
+  if (sortKey) {
+    next.sort(
+      (a, b) =>
+        Number((b as Record<string, unknown>)[sortKey] ?? 0) - Number((a as Record<string, unknown>)[sortKey] ?? 0),
+    );
   }
+  return { ...current, [key]: next } as AppSnapshot;
+}
+
+export type Write = { store: StoreName; put: { id: string } } | { store: StoreName; delete: string };
+
+/**
+ * Aplica varias escrituras y entradas de bitácora en UNA transacción: o se guarda todo o nada.
+ * Es la base de la edición de historial (registro + auditLog juntos).
+ */
+export async function commit(writes: Write[], audit: Omit<AuditEntry, "id" | "at">[] = []): Promise<void> {
+  if (!writes.length && !audit.length) return;
+  const database = await openDatabase();
+  const at = Date.now();
+  const auditRecords: AuditEntry[] = audit.map((entry) => ({ ...entry, id: makeId("audit"), at }));
+  const stores = [
+    ...new Set([...writes.map((write) => write.store), ...(auditRecords.length ? ["auditLog" as const] : [])]),
+  ];
+  const transaction = database.transaction(stores, "readwrite");
+  for (const write of writes) {
+    if ("put" in write) transaction.objectStore(write.store).put(write.put);
+    else transaction.objectStore(write.store).delete(write.delete);
+  }
+  auditRecords.forEach((record) => transaction.objectStore("auditLog").put(record));
+  await transactionDone(transaction);
+  let next = snapshot;
+  for (const write of writes)
+    next =
+      "put" in write
+        ? withChange(next, write.store, write.put)
+        : withChange(next, write.store, undefined, write.delete);
+  for (const record of auditRecords) next = withChange(next, "auditLog", record);
+  publish(next);
+}
+
+export async function saveRecord<S extends StoreName>(store: S, record: StoreMap[S]): Promise<void> {
+  await commit([{ store, put: record as { id: string } }]);
 }
 
 export async function saveMany<S extends StoreName>(store: S, records: StoreMap[S][]): Promise<void> {
@@ -268,27 +346,19 @@ export async function saveMany<S extends StoreName>(store: S, records: StoreMap[
 }
 
 export async function deleteRecord(store: StoreName, id: string): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(store, "readwrite");
-  transaction.objectStore(store).delete(id);
-  await transactionDone(transaction);
-  if (store === "activeSession") publish({ ...snapshot, activeSession: null });
-  else if (store !== "profile" && store !== "settings") {
-    const key = store as Exclude<StoreName, "profile" | "settings" | "activeSession">;
-    publish({
-      ...snapshot,
-      [key]: (snapshot[key] as { id: string }[]).filter((item) => item.id !== id),
-    } as AppSnapshot);
-  }
+  if (store === "profile" || store === "settings")
+    throw new Error("El perfil y los ajustes no se borran por separado.");
+  await commit([{ store, delete: id }]);
 }
 
+// Sin FileReader: funciona igual en el navegador y en las pruebas (Node).
 async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("No se pudo preparar la foto para el respaldo."));
-    reader.readAsDataURL(blob);
-  });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
 }
 
 export async function exportBackup(): Promise<Record<string, unknown>> {
@@ -297,7 +367,7 @@ export async function exportBackup(): Promise<Record<string, unknown>> {
   const stores: Record<string, unknown[]> = Object.fromEntries(
     STORE_NAMES.map((name, index) => [name, values[index] as unknown[]]),
   );
-  stores.meta = (stores.meta as MetaRecord[]).filter((record) => record.id !== "pre-import-backup");
+  stores.meta = (stores.meta as MetaRecord[]).filter((record) => record.id !== ROLLBACK_ID);
   stores.photos = await Promise.all(
     (stores.photos as PhotoRecord[]).map(async (photo) => {
       if (!photo.blob) return photo;
@@ -306,6 +376,7 @@ export async function exportBackup(): Promise<Record<string, unknown>> {
   );
   return {
     app: "ManteYym",
+    appVersion: typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "dev",
     schemaVersion: SCHEMA_VERSION,
     exportedAt: Date.now(),
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -326,11 +397,22 @@ export function validateBackup(value: unknown): { backup: Record<string, unknown
   if (!value || typeof value !== "object") throw new Error("El archivo no contiene un objeto de respaldo válido.");
   const candidate = value as Record<string, unknown>;
   if (candidate.app !== "ManteYym") throw new Error("Este archivo no pertenece a ManteYym.");
-  if (candidate.schemaVersion !== SCHEMA_VERSION)
-    throw new Error(`Versión de respaldo no compatible. Se esperaba ${SCHEMA_VERSION}.`);
+  const version = Number(candidate.schemaVersion);
+  if (!Number.isInteger(version) || version < 1) throw new Error("El respaldo no indica una versión de datos válida.");
+  if (version > SCHEMA_VERSION)
+    throw new Error(`El respaldo es de una versión más nueva (v${version}). Actualiza ManteYym antes de restaurarlo.`);
   if (typeof candidate.exportedAt !== "number" || !candidate.stores || typeof candidate.stores !== "object")
     throw new Error("Faltan datos obligatorios del respaldo.");
-  const stores = candidate.stores as Record<string, unknown>;
+  const rawStores = candidate.stores as Record<string, unknown>;
+  const required: readonly string[] = version === 1 ? STORES_V1 : STORE_NAMES;
+  for (const name of required) {
+    if (!Array.isArray(rawStores[name])) throw new Error(`La lista local '${name}' falta o está corrupta.`);
+  }
+  // Los stores agregados en versiones nuevas pueden faltar en respaldos viejos: se completan vacíos.
+  const stores = migrateDataset(
+    Object.fromEntries(STORE_NAMES.map((name) => [name, (rawStores[name] as Record<string, unknown>[]) ?? []])),
+    version,
+  ) as Record<string, unknown>;
   for (const name of STORE_NAMES) {
     if (!Array.isArray(stores[name])) throw new Error(`La lista local '${name}' falta o está corrupta.`);
     if (
@@ -421,7 +503,7 @@ export function validateBackup(value: unknown): { backup: Record<string, unknown
     photos: (stores.photos as unknown[]).length,
     exportedAt: candidate.exportedAt as number,
   };
-  return { backup: candidate, summary };
+  return { backup: { ...candidate, schemaVersion: SCHEMA_VERSION, stores, migratedFrom: version }, summary };
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -434,9 +516,34 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
+const ROLLBACK_ID = "pre-import-backup";
+
+/** Lee todos los stores tal cual (fotos como Blob, sin base64) para poder deshacer una importación. */
+async function readAllRaw(database: IDBDatabase): Promise<Record<string, unknown[]>> {
+  const values = await Promise.all(STORE_NAMES.map((name) => readStore(database, name)));
+  const stores = Object.fromEntries(STORE_NAMES.map((name, index) => [name, values[index] as unknown[]]));
+  stores.meta = (stores.meta as MetaRecord[]).filter((record) => record.id !== ROLLBACK_ID);
+  return stores;
+}
+
+/** Reemplaza todos los stores en una única transacción: si algo falla (p. ej. cuota), no cambia nada. */
+async function replaceAllStores(data: Record<string, unknown[]>, rollback: Record<string, unknown[]> | null) {
+  const database = await openDatabase();
+  const transaction = database.transaction(STORE_NAMES, "readwrite");
+  for (const name of STORE_NAMES) {
+    const objectStore = transaction.objectStore(name);
+    objectStore.clear();
+    const records = (data[name] ?? []).filter((record) => (record as { id?: string }).id !== ROLLBACK_ID);
+    if (name === "meta" && rollback) records.push({ id: ROLLBACK_ID, stores: rollback, savedAt: Date.now() });
+    records.forEach((record) => objectStore.put(record));
+  }
+  await transactionDone(transaction);
+  publish(await hydrateFromDatabase());
+}
+
 export async function importBackup(value: unknown): Promise<BackupSummary> {
   const { backup, summary } = validateBackup(value);
-  const automaticCopy = await exportBackup();
+  const rollback = await readAllRaw(await openDatabase());
   const source = backup.stores as Record<string, unknown[]>;
   const prepared = Object.fromEntries(
     STORE_NAMES.map((name) => [
@@ -448,28 +555,24 @@ export async function importBackup(value: unknown): Promise<BackupSummary> {
             const { dataUrl, ...rest } = photo;
             return { ...rest, blob: dataUrlToBlob(dataUrl) };
           })
-        : name === "meta"
-          ? source[name].filter((record) => (record as { id?: string }).id !== "pre-import-backup")
-          : source[name],
+        : source[name],
     ]),
   ) as Record<string, unknown[]>;
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAMES, "readwrite");
-  for (const name of STORE_NAMES) {
-    const objectStore = transaction.objectStore(name);
-    objectStore.clear();
-    const records =
-      name === "meta"
-        ? [
-            ...prepared[name].filter((record) => (record as { id?: string }).id !== "pre-import-backup"),
-            { id: "pre-import-backup", backup: automaticCopy, savedAt: Date.now() },
-          ]
-        : prepared[name];
-    records.forEach((record) => objectStore.put(record));
-  }
-  await transactionDone(transaction);
-  publish(await hydrateFromDatabase());
+  await replaceAllStores(prepared, rollback);
   return summary;
+}
+
+/** Fecha de la copia automática previa a la última importación, si existe. */
+export function rollbackSavedAt(): number | null {
+  const record = snapshot.meta.find((item) => item.id === ROLLBACK_ID);
+  return record && record.stores ? Number(record.savedAt) : null;
+}
+
+/** Deshace la última importación restaurando la copia automática. */
+export async function restoreRollback(): Promise<void> {
+  const record = snapshot.meta.find((item) => item.id === ROLLBACK_ID);
+  if (!record?.stores) throw new Error("No hay una copia previa a la importación en este dispositivo.");
+  await replaceAllStores(record.stores as Record<string, unknown[]>, null);
 }
 
 export async function resetStore(): Promise<void> {
@@ -479,9 +582,17 @@ export async function resetStore(): Promise<void> {
   await transactionDone(transaction);
   database.close();
   databasePromise = null;
+  upgradedFromVersion = 0;
   await initializeStore();
 }
 
 export function newMetaRecord(id: string, fields: Record<string, unknown> = {}): MetaRecord {
   return { id: `${id}-${makeId("meta")}`, ...fields };
+}
+
+/** Solo para pruebas: olvida la conexión abierta para simular un arranque nuevo. */
+export function __resetConnectionForTests(): void {
+  databasePromise = null;
+  upgradedFromVersion = null;
+  snapshot = blankSnapshot;
 }

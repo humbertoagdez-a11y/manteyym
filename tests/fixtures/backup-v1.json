@@ -1,0 +1,202 @@
+{
+  "app": "ManteYym",
+  "schemaVersion": 1,
+  "exportedAt": 1790000000000,
+  "timeZone": "America/Asuncion",
+  "stores": {
+    "profile": [
+      {
+        "id": "main",
+        "onboardingComplete": true,
+        "goal": "hipertrofia",
+        "level": "intermedio",
+        "yearsTraining": 2,
+        "days": 4,
+        "minutes": 60,
+        "equipment": ["Gimnasio completo"],
+        "priorities": ["pecho", "gluteos"],
+        "injuries": [{ "id": "injury-onb-1", "zone": "muneca", "note": "", "pain": 1, "createdAt": 1785000000000 }],
+        "exclusions": ["dominada"],
+        "units": "kg",
+        "progression": "doble"
+      }
+    ],
+    "settings": [
+      {
+        "id": "main",
+        "theme": "dark",
+        "defaultRest": 90,
+        "barWeight": 20,
+        "plates": [25, 20, 15, 10, 5, 2.5, 1.25],
+        "sound": true,
+        "vibration": true,
+        "notifications": false,
+        "reminders": false,
+        "reminderTime": "18:00",
+        "reminderDays": [1, 3, 5]
+      }
+    ],
+    "exercises": [
+      {
+        "id": "bench-barbell",
+        "name": "Press de banca con barra",
+        "muscle": "pecho",
+        "secondary": ["triceps", "hombros"],
+        "equipment": ["barra", "banco"],
+        "pattern": "empuje-horizontal",
+        "category": "compuesto",
+        "steps": ["Ajusta el apoyo y coloca las manos algo mas separadas que los hombros."],
+        "mistakes": ["Rebotar la carga o perder el control del descenso."],
+        "source": "local"
+      },
+      {
+        "id": "back-squat",
+        "name": "Sentadilla trasera con barra",
+        "muscle": "cuadriceps",
+        "secondary": ["gluteos"],
+        "equipment": ["barra"],
+        "pattern": "sentadilla",
+        "category": "compuesto",
+        "steps": ["Coloca los pies a una anchura comoda."],
+        "mistakes": ["Rebotar en el fondo del recorrido."],
+        "source": "local"
+      },
+      {
+        "id": "personal-1",
+        "name": "Remo en Smith con pausa",
+        "muscle": "espalda",
+        "secondary": ["biceps"],
+        "equipment": ["maquinas"],
+        "pattern": "tiron-horizontal",
+        "category": "compuesto",
+        "steps": ["Pausa de un segundo arriba."],
+        "mistakes": [],
+        "source": "personal"
+      },
+      {
+        "id": "free-Barbell_Curl",
+        "name": "Curl de biceps con barra",
+        "muscle": "biceps",
+        "secondary": ["antebrazos"],
+        "equipment": ["barra"],
+        "pattern": "aislamiento",
+        "category": "aislamiento",
+        "steps": ["Stand up with your torso upright."],
+        "mistakes": [],
+        "source": "free-exercise-db",
+        "images": ["Barbell_Curl/0.jpg", "Barbell_Curl/1.jpg"],
+        "instructionsOriginal": true
+      }
+    ],
+    "routines": [
+      {
+        "id": "routine-1",
+        "name": "Torso / pierna",
+        "split": "torso / pierna",
+        "template": "auto",
+        "createdAt": 1785000000000,
+        "days": [
+          {
+            "id": "day-a",
+            "name": "Torso",
+            "note": "",
+            "exercises": [
+              { "exerciseId": "bench-barbell", "sets": 4, "repsMin": 6, "repsMax": 12, "restSec": 120, "rir": 2, "note": "" },
+              { "exerciseId": "personal-1", "sets": 3, "repsMin": 8, "repsMax": 12, "restSec": 90, "rir": 2, "note": "" }
+            ]
+          },
+          {
+            "id": "day-b",
+            "name": "Pierna",
+            "note": "",
+            "exercises": [
+              { "exerciseId": "back-squat", "sets": 4, "repsMin": 6, "repsMax": 10, "restSec": 150, "rir": 2, "note": "" }
+            ]
+          }
+        ]
+      }
+    ],
+    "blocks": [
+      { "id": "block-1", "routineId": "routine-1", "name": "Bloque inicial", "startAt": 1785000000000, "weeks": 6, "deloadWeek": 6 }
+    ],
+    "sessions": [
+      {
+        "id": "session-1",
+        "routineId": "routine-1",
+        "dayId": "day-a",
+        "dayName": "Torso",
+        "startedAt": 1786000000000,
+        "endedAt": 1786003600000,
+        "timeZone": "America/Asuncion",
+        "durationMs": 3600000,
+        "volume": 3840,
+        "notes": "Buena sesion",
+        "exercises": [
+          {
+            "exerciseId": "bench-barbell",
+            "targetSets": 2,
+            "repsMin": 6,
+            "repsMax": 12,
+            "restSec": 120,
+            "note": "",
+            "sets": [
+              { "id": "s1-1", "weight": 80, "reps": 10, "type": "normal", "rir": 2, "rpe": null, "note": "", "completed": true, "completedAt": 1786000600000 },
+              { "id": "s1-2", "weight": 80, "reps": 8, "type": "normal", "rir": 1, "rpe": null, "note": "hombro raro", "completed": true, "completedAt": 1786000800000 }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "session-2",
+        "routineId": "routine-1",
+        "dayId": "day-b",
+        "dayName": "Pierna",
+        "startedAt": 1786200000000,
+        "endedAt": 1786203000000,
+        "timeZone": "America/Asuncion",
+        "durationMs": 3000000,
+        "volume": 3000,
+        "notes": "",
+        "exercises": [
+          {
+            "exerciseId": "back-squat",
+            "targetSets": 3,
+            "repsMin": 6,
+            "repsMax": 10,
+            "restSec": 150,
+            "note": "",
+            "sets": [
+              { "id": "s2-0", "weight": 40, "reps": 8, "type": "calentamiento", "rir": null, "note": "", "completed": true },
+              { "id": "s2-1", "weight": 100, "reps": 6, "type": "normal", "rir": 2, "note": "", "completed": true },
+              { "id": "s2-2", "weight": 100, "reps": 5, "type": "normal", "rir": 1, "note": "", "completed": false }
+            ]
+          }
+        ]
+      }
+    ],
+    "activeSession": [],
+    "bodyMetrics": [{ "id": "metric-1", "at": 1786000000000, "weight": 82.4, "waist": 86 }],
+    "injuries": [
+      { "id": "injury-onb-1", "zone": "muneca", "note": "", "pain": 1, "createdAt": 1785000000000 },
+      { "id": "injury-2", "zone": "hombro", "note": "Molesta en press", "pain": 4, "createdAt": 1786100000000 }
+    ],
+    "goals": [{ "id": "goal-1", "exerciseId": "bench-barbell", "target": 100, "units": "kg", "createdAt": 1785000000000 }],
+    "cardio": [{ "id": "cardio-1", "type": "Caminata", "minutes": 30, "intensity": 3, "at": 1786100000000 }],
+    "photos": [
+      {
+        "id": "photo-1",
+        "at": 1786000000000,
+        "label": "Frente",
+        "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+      }
+    ],
+    "meta": [
+      { "id": "firstSeen", "at": 1785000000000 },
+      { "id": "schema", "version": 1, "migratedAt": 1785000000000 },
+      { "id": "active-routine", "routineId": "routine-1" },
+      { "id": "lastBackupAt", "at": 1789000000000 },
+      { "id": "readiness-2026-09-10", "sueno": 2, "energia": 3, "agujetas": 4, "estres": 3, "at": 1788999000000 },
+      { "id": "readiness-2026-09-12", "sueno": 4, "energia": 4, "agujetas": 2, "estres": 2, "at": 1789170000000 }
+    ]
+  }
+}

@@ -1,6 +1,35 @@
 import type { ReactNode } from "react";
 
 const drawings: Record<string, ReactNode> = {
+  history: (
+    <>
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5M12 7v5l3 2" />
+    </>
+  ),
+  alert: (
+    <>
+      <path d="M12 3 2 20h20L12 3z" />
+      <path d="M12 10v4M12 17h.01" />
+    </>
+  ),
+  pain: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 15c1.2-1.3 2.5-2 4-2s2.8.7 4 2M9 9.5h.01M15 9.5h.01" />
+    </>
+  ),
+  smile: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 14c1.2 1.3 2.5 2 4 2s2.8-.7 4-2M9 9.5h.01M15 9.5h.01" />
+    </>
+  ),
+  list: (
+    <>
+      <path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01" />
+    </>
+  ),
   hoy: (
     <>
       <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1z" />

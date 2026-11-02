@@ -10,6 +10,7 @@ import {
   normalizeRemoteExercise,
   sessionVolume,
 } from "./engine/fitness";
+import { downscaleImage } from "./lib/images";
 import { allTargetSets, completedSets, currentDay, cx, formatDate, weekIndex } from "./lib/format";
 import { AdaptDialog } from "./screens/AdaptDialog";
 import { ExerciseBrowser } from "./screens/ExerciseBrowser";
@@ -31,6 +32,8 @@ import {
   importBackup,
   initializeStore,
   resetStore,
+  restoreRollback,
+  rollbackSavedAt,
   saveMany,
   saveRecord,
   storageErrorMessage,
@@ -446,8 +449,7 @@ function App() {
       const active = getSnapshot().activeSession;
       if (!active) return;
       const completed = completedSets(active.exercises);
-      if (completed === 0 && !window.confirm("No completaste ninguna serie. ¿Guardar igualmente esta sesión?"))
-        return;
+      if (completed === 0 && !window.confirm("No completaste ninguna serie. ¿Guardar igualmente esta sesión?")) return;
       if (
         completed > 0 &&
         completed < allTargetSets(active.exercises) &&
@@ -581,8 +583,8 @@ function App() {
   const onBackupFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 60 * 1024 * 1024) {
-      notify("El respaldo supera el límite de 60 MB.");
+    if (file.size > 200 * 1024 * 1024) {
+      notify("El respaldo supera el límite de 200 MB.");
       event.target.value = "";
       return;
     }
@@ -606,6 +608,16 @@ function App() {
       notify(
         `Restaurados ${result.routines} rutinas, ${result.sessions} sesiones y ${result.exercises} ejercicios. Copia anterior guardada en este dispositivo.`,
       );
+    } catch (error) {
+      notify(storageErrorMessage(error));
+    }
+  };
+
+  const undoImport = async () => {
+    if (!window.confirm("¿Volver a los datos que tenías antes de la última restauración?")) return;
+    try {
+      await restoreRollback();
+      notify("Se restauraron los datos previos a la importación.");
     } catch (error) {
       notify(storageErrorMessage(error));
     }
@@ -944,12 +956,15 @@ function App() {
           onAddGoal={(goal) => safePersist("goals", goal).then(() => notify("Objetivo guardado."))}
           onDeleteGoal={(goal) => deleteRecord("goals", goal.id).then(() => notify("Objetivo eliminado."))}
           onAddCardio={(record) => safePersist("cardio", record).then(() => notify("Sesión de cardio guardada."))}
-          onAddPhoto={(file, label) =>
-            safePersist("photos", { id: makeId("photo"), at: Date.now(), label: label || file.name, blob: file }).then(
-              (saved) => {
-                if (saved) notify("Foto guardada en el dispositivo.");
-              },
-            )
+          onAddPhoto={async (file, label) =>
+            safePersist("photos", {
+              id: makeId("photo"),
+              at: Date.now(),
+              label: label || file.name,
+              blob: await downscaleImage(file),
+            }).then((saved) => {
+              if (saved) notify("Foto guardada en el dispositivo.");
+            })
           }
           onDeletePhoto={(id) => deleteRecord("photos", id).then(() => notify("Foto eliminada del dispositivo."))}
         />
@@ -970,6 +985,8 @@ function App() {
         onExport={() => void downloadBackup()}
         onImport={() => fileInput.current?.click()}
         onClear={() => void clearAll()}
+        rollbackAt={rollbackSavedAt()}
+        onRollback={() => void undoImport()}
         onInstall={() => void installApp()}
         installAvailable={Boolean(installPrompt)}
         onToast={notify}

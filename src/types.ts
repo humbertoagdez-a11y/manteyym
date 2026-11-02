@@ -133,6 +133,16 @@ export interface LoggedSet {
   note: string;
   completed: boolean;
   completedAt?: number;
+  /** v2: lado en ejercicios unilaterales. */
+  side?: "izq" | "der" | "ambos";
+  /** v2: tempo libre, p. ej. "3-1-1-0". */
+  tempo?: string;
+  /** v2: segundos reales de descanso antes de esta serie (calculado). */
+  restTakenSec?: number;
+  /** v2: lastre (+) o asistencia (−) en kg/lb, aparte de weight. */
+  extraLoad?: number;
+  /** v2: variante de agarre o equipo (texto corto). */
+  variant?: string;
 }
 
 export interface SessionExercise {
@@ -145,6 +155,11 @@ export interface SessionExercise {
   superset?: string;
   groupType?: "superset" | "circuito";
   sets: LoggedSet[];
+  /** v2: undefined equivale a "hecho". */
+  status?: "hecho" | "omitido" | "sustituido";
+  statusReason?: "dolor" | "equipo_ocupado" | "tiempo" | "otro";
+  /** v2: ejercicio planificado originalmente cuando status es "sustituido". */
+  replacedExerciseId?: string;
 }
 
 export interface ActiveSession {
@@ -164,7 +179,7 @@ export interface ActiveSession {
   notes: string;
 }
 
-export interface TrainingSession {
+export interface TrainingSession extends Revisioned {
   id: string;
   routineId: string;
   dayId: string;
@@ -176,6 +191,16 @@ export interface TrainingSession {
   volume: number;
   notes: string;
   exercises: SessionExercise[];
+  /** v2: chequeo previo ligado a esta sesión. */
+  checkinId?: string;
+  /** v2: RPE global de la sesión (1–10). */
+  sessionRpe?: number;
+  /** v2: ánimo al terminar (1–5). */
+  mood?: number;
+  bodyWeight?: number;
+  place?: string;
+  /** v2: cómo terminó la sesión respecto al dolor. */
+  endPain?: "sin_dolor" | "con_molestia";
 }
 
 export interface BodyMetric {
@@ -185,6 +210,15 @@ export interface BodyMetric {
   waist?: number;
   chest?: number;
   hip?: number;
+  /** v2 */
+  bodyFat?: number;
+  neck?: number;
+  shoulders?: number;
+  arm?: number;
+  forearm?: number;
+  thigh?: number;
+  calf?: number;
+  note?: string;
 }
 
 export interface GoalRecord {
@@ -210,11 +244,79 @@ export interface PhotoRecord {
   label: string;
   blob?: Blob;
   dataUrl?: string;
+  /** v2: pose para comparar lado a lado (frente, perfil, espalda). */
+  pose?: "frente" | "perfil" | "espalda" | "otra";
 }
 
 export interface MetaRecord {
   id: string;
   [key: string]: unknown;
+}
+
+// ---- Esquema v2 ----
+
+/** Campos de trazabilidad para registros editables (opcionales: los registros v1 no los tienen). */
+export interface Revisioned {
+  createdAt?: number;
+  updatedAt?: number;
+  revision?: number;
+}
+
+export type PainSide = "izq" | "der" | "ambos" | "centro";
+export type PainQuality = "punzante" | "sordo" | "ardor" | "hormigueo" | "tension" | "rigidez" | "otro";
+export type PainWhen = "antes" | "durante" | "despues" | "fuera_de_entreno" | "al_despertar";
+
+/** Registro de dolor append-only. "sin_dolor" es un check-in explícito de que no hay dolor. */
+export interface PainEntry extends Revisioned {
+  id: string;
+  at: number;
+  timeZone: string;
+  status: "dolor" | "sin_dolor";
+  /** Ids de PAIN_ZONES; vacío si status es "sin_dolor". */
+  zones: string[];
+  side?: PainSide;
+  /** 0–10; undefined si status es "sin_dolor". */
+  intensity?: number;
+  quality?: PainQuality[];
+  when: PainWhen;
+  context?: { sessionId?: string; exerciseId?: string; setId?: string };
+  note: string;
+  ongoing: boolean;
+  resolvedAt?: number;
+  /** Marca registros creados por una migración (p. ej. "v1-injury"). */
+  origin?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Chequeo previo (disposición). Escala 1–5 salvo horas de sueño. */
+export interface DailyCheckin extends Revisioned {
+  id: string;
+  at: number;
+  dayKey: string;
+  sessionId?: string;
+  sleepHours?: number;
+  sleepQuality?: number;
+  energy?: number;
+  stress?: number;
+  soreness?: number;
+  sorenessZones?: string[];
+  mood?: number;
+  origin?: string;
+}
+
+export type AuditAction = "create" | "update" | "delete" | "restore" | "migrate";
+
+/** Bitácora append-only de cambios sobre registros editables. */
+export interface AuditEntry {
+  id: string;
+  at: number;
+  entity: string;
+  entityId: string;
+  action: AuditAction;
+  summary: string;
+  before?: unknown;
+  after?: unknown;
 }
 
 export interface StoreMap {
@@ -231,6 +333,9 @@ export interface StoreMap {
   cardio: CardioRecord;
   photos: PhotoRecord;
   meta: MetaRecord;
+  painEntries: PainEntry;
+  dailyCheckins: DailyCheckin;
+  auditLog: AuditEntry;
 }
 
 export type StoreName = keyof StoreMap;

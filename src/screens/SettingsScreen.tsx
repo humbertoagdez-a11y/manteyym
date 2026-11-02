@@ -17,6 +17,8 @@ export function SettingsScreen({
   onExport,
   onImport,
   onClear,
+  rollbackAt,
+  onRollback,
   onInstall,
   installAvailable,
   onToast,
@@ -31,6 +33,8 @@ export function SettingsScreen({
   onExport: () => void;
   onImport: () => void;
   onClear: () => void;
+  rollbackAt: number | null;
+  onRollback: () => void;
   onInstall: () => void;
   installAvailable: boolean;
   onToast: (message: string) => void;
@@ -283,6 +287,17 @@ export function SettingsScreen({
               : "Todavía no creado"}
           </span>
         </div>
+        {rollbackAt && (
+          <div className="rollback-row">
+            <span>
+              Antes de la última restauración se guardó una copia de tus datos (
+              {formatDate(rollbackAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}).
+            </span>
+            <Button variant="quiet" icon="history" onClick={onRollback}>
+              Deshacer la restauración
+            </Button>
+          </div>
+        )}
         <div className="storage-status">
           <div>
             <span>Almacenamiento persistente</span>
@@ -312,7 +327,7 @@ export function SettingsScreen({
           <Icon name="download" />
         </div>
         <p className="muted-copy">
-          En Android usa el menu del navegador y elige instalar. En iPhone abre Safari, toca Compartir y selecciona
+          En Android usa el menú del navegador y elige instalar. En iPhone abre Safari, toca Compartir y selecciona
           Añadir a pantalla de inicio.
         </p>
         {installAvailable && (
