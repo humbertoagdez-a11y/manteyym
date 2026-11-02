@@ -1,3 +1,4 @@
+import { exerciseRecords } from "../lib/records";
 import { label } from "../i18n/es";
 import { ExerciseVisual } from "../components/ExerciseVisual";
 import { Icon } from "../components/Icon";
@@ -21,6 +22,7 @@ export function ExerciseDetail({
   onClose: () => void;
 }) {
   const history = getExerciseHistory(sessions, exercise.id);
+  const records = exerciseRecords(sessions, exercise.id);
   const completed = history.flatMap((entry) =>
     entry.item.sets.filter((set) => set.completed && set.type !== "calentamiento"),
   );
@@ -72,6 +74,31 @@ export function ExerciseDetail({
               <strong>{history.length}</strong>
             </div>
           </div>
+          {records.byRepRange.length > 0 && (
+            <div className="records-table" aria-label="Mejores marcas por rango de repeticiones">
+              <span className="eyebrow">MEJOR CARGA POR RANGO DE REPETICIONES</span>
+              {records.byRepRange.map((item) => (
+                <div key={item.range}>
+                  <span>{item.range} reps</span>
+                  <strong>
+                    {formatted(item.weight)} {units} × {item.reps}
+                  </strong>
+                  <small>{formatDate(item.at, { day: "numeric", month: "short", year: "2-digit" })}</small>
+                </div>
+              ))}
+              {records.bestSessionVolume && (
+                <div>
+                  <span>Volumen en una sesión</span>
+                  <strong>
+                    {formatted(records.bestSessionVolume.value, 0)} {units}
+                  </strong>
+                  <small>
+                    {formatDate(records.bestSessionVolume.at, { day: "numeric", month: "short", year: "2-digit" })}
+                  </small>
+                </div>
+              )}
+            </div>
+          )}
           {bestEstimated > 0 && (
             <p className="muted-copy">
               El 1RM estimado usa la fórmula de Epley. Es una aproximación, no una prueba de fuerza máxima.

@@ -20,7 +20,7 @@ import {
   formatDuration,
   formatted,
 } from "../lib/format";
-import type { ActiveSession, Exercise, LoggedSet, Profile, Settings, TrainingSession } from "../types";
+import type { ActiveSession, Exercise, LoggedSet, Profile, SessionExercise, Settings, TrainingSession } from "../types";
 import { useEffect, useRef, useState } from "react";
 
 export function WorkoutSession({
@@ -120,6 +120,11 @@ export function WorkoutSession({
     const highestE1rm = Math.max(0, ...previous.map((entry) => estimatedOneRepMax(entry.weight, entry.reps)));
     const e1rm = estimatedOneRepMax(set.weight, set.reps);
     const completedAt = Date.now();
+    const lastCompletion = Math.max(
+      0,
+      ...active.exercises.flatMap((entry) => entry.sets.map((log) => (log.completed ? (log.completedAt ?? 0) : 0))),
+    );
+    const restTakenSec = lastCompletion ? Math.round((completedAt - lastCompletion) / 1000) : undefined;
     const recordParts: string[] = [];
     if (set.type !== "calentamiento" && set.weight > highestWeight) recordParts.push("mejor carga");
     if (set.type !== "calentamiento" && set.reps > highestReps) recordParts.push("más repeticiones");
@@ -133,7 +138,7 @@ export function WorkoutSession({
           ? {
               ...exercise,
               sets: exercise.sets.map((itemSet, nested) =>
-                nested === setIndex ? { ...itemSet, completed: true, completedAt } : itemSet,
+                nested === setIndex ? { ...itemSet, completed: true, completedAt, restTakenSec } : itemSet,
               ),
             }
           : exercise,
@@ -444,8 +449,32 @@ export function WorkoutSession({
                         >
                           <Icon name="check" size={18} />
                         </button>
+                        {setIndex > 0 &&
+                          !set.completed &&
+                          (set.weight !== item.sets[setIndex - 1].weight ||
+                            set.reps !== item.sets[setIndex - 1].reps) && (
+                            <button
+                              type="button"
+                              className="repeat-previous"
+                              onClick={() =>
+                                mutateSet(exerciseIndex, setIndex, {
+                                  weight: item.sets[setIndex - 1].weight,
+                                  reps: item.sets[setIndex - 1].reps,
+                                })
+                              }
+                            >
+                              <Icon name="copy" size={15} /> Igual que la anterior (
+                              {formatted(item.sets[setIndex - 1].weight)} {profile.units} ×{" "}
+                              {item.sets[setIndex - 1].reps})
+                            </button>
+                          )}
                         <details className="set-extra">
-                          <summary>RIR, RPE y nota</summary>
+                          <summary>
+                            RIR, RPE, lado y nota
+                            {set.restTakenSec
+                              ? ` · descanso ${Math.round(set.restTakenSec / 60)}:${String(set.restTakenSec % 60).padStart(2, "0")}`
+                              : ""}
+                          </summary>
                           <div className="set-extra-fields">
                             <SelectField
                               label="RIR"
@@ -478,6 +507,39 @@ export function WorkoutSession({
                               onChange={(note) => mutateSet(exerciseIndex, setIndex, { note })}
                               placeholder="Nota opcional"
                             />
+                            <SelectField
+                              label="Lado"
+                              value={set.side ?? ""}
+                              onChange={(value) =>
+                                mutateSet(exerciseIndex, setIndex, { side: (value || undefined) as LoggedSet["side"] })
+                              }
+                              options={[
+                                { value: "", label: "No aplica" },
+                                { value: "izq", label: "Izquierdo" },
+                                { value: "der", label: "Derecho" },
+                                { value: "ambos", label: "Ambos" },
+                              ]}
+                            />
+                            <Field
+                              label="Lastre (+) o asistencia (−)"
+                              type="number"
+                              step={0.5}
+                              value={set.extraLoad ?? ""}
+                              onChange={(value) =>
+                                mutateSet(exerciseIndex, setIndex, {
+                                  extraLoad: value === "" ? undefined : cleanNumber(value),
+                                })
+                              }
+                              suffix={profile.units}
+                            />
+                            <Field
+                              label="Variante (agarre, equipo)"
+                              value={set.variant ?? ""}
+                              onChange={(variant) =>
+                                mutateSet(exerciseIndex, setIndex, { variant: variant || undefined })
+                              }
+                              placeholder="Ej.: agarre neutro"
+                            />
                             <Button
                               variant="quiet"
                               icon="pain"
@@ -505,7 +567,7 @@ export function WorkoutSession({
                                     {
                                       id: makeId("set"),
                                       weight: entry.sets.at(-1)?.weight ?? 0,
-                                      reps: entry.repsMin,
+                                      reps: entry.sets.at(-1)?.reps ?? entry.repsMin,
                                       type: "normal",
                                       rir: null,
                                       rpe: null,
@@ -521,6 +583,39 @@ export function WorkoutSession({
                     >
                       Añadir serie
                     </Button>
+                    <SelectField
+                      label="Estado del ejercicio"
+                      value={
+                        item.status === "omitido" ? `omitido:${item.statusReason ?? "otro"}` : (item.status ?? "hecho")
+                      }
+                      onChange={(value) =>
+                        onChange((current) => ({
+                          ...current,
+                          exercises: current.exercises.map((entry, index) => {
+                            if (index !== exerciseIndex) return entry;
+                            if (value.startsWith("omitido:"))
+                              return {
+                                ...entry,
+                                status: "omitido",
+                                statusReason: value.slice(8) as SessionExercise["statusReason"],
+                              };
+                            return entry.replacedExerciseId
+                              ? { ...entry, status: "sustituido" }
+                              : { ...entry, status: undefined, statusReason: undefined };
+                          }),
+                        }))
+                      }
+                      options={[
+                        {
+                          value: item.replacedExerciseId ? "sustituido" : "hecho",
+                          label: item.replacedExerciseId ? "Sustituido" : "Hacer / hecho",
+                        },
+                        { value: "omitido:dolor", label: "Omitir: dolor o molestia" },
+                        { value: "omitido:equipo_ocupado", label: "Omitir: equipo ocupado" },
+                        { value: "omitido:tiempo", label: "Omitir: falta de tiempo" },
+                        { value: "omitido:otro", label: "Omitir: otro motivo" },
+                      ]}
+                    />
                   </article>
                 );
               })

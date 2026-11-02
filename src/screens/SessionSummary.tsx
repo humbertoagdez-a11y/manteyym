@@ -11,6 +11,7 @@ export function SessionSummary({
   exercises,
   onClose,
   onEndPain,
+  onRate,
   onProgress,
 }: {
   session: TrainingSession;
@@ -19,6 +20,7 @@ export function SessionSummary({
   exercises: Exercise[];
   onClose: () => void;
   onEndPain: (status: "sin_dolor" | "con_molestia") => void;
+  onRate: (rpe: number) => void;
   onProgress: () => void;
 }) {
   const completed = session.exercises.reduce((sum, item) => sum + item.sets.filter((set) => set.completed).length, 0);
@@ -94,6 +96,22 @@ export function SessionSummary({
               <strong>{formatted(effectiveVolume[muscle], 1)}</strong>
             </div>
           ))}
+        </div>
+        <div className="end-pain">
+          <span className="eyebrow">ESFUERZO DE LA SESIÓN (RPE 1–10)</span>
+          <div className="rpe-scale" role="group" aria-label="Esfuerzo de la sesión de 1 a 10">
+            {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={session.sessionRpe === value ? "scale-active" : undefined}
+                aria-pressed={session.sessionRpe === value}
+                onClick={() => onRate(value)}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="end-pain">
           <span className="eyebrow">¿CÓMO TERMINASTE?</span>

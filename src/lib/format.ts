@@ -28,7 +28,8 @@ export function exerciseName(exercises: Exercise[], id: string) {
   return exercises.find((exercise) => exercise.id === id)?.name ?? "Ejercicio guardado";
 }
 export function allTargetSets(exercises: SessionExercise[]) {
-  return exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0);
+  // Un ejercicio omitido no deja series "pendientes".
+  return exercises.reduce((sum, exercise) => sum + (exercise.status === "omitido" ? 0 : exercise.targetSets), 0);
 }
 export function completedSets(exercises: SessionExercise[]) {
   return exercises.reduce((sum, exercise) => sum + exercise.sets.filter((set) => set.completed).length, 0);

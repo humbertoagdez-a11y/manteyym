@@ -1,5 +1,6 @@
 import { Icon } from "./components/Icon";
 import { PainSheet, type PainSheetConfig } from "./components/PainSheet";
+import { SessionEditor } from "./components/SessionEditor";
 import { Button, DialogFrame, LocalBadge, NumericPad } from "./components/ui";
 import { APP_VERSION, DAY_MS, NAV_ITEMS } from "./constants";
 import { FREE_DB } from "./data/exerciseSource";
@@ -12,6 +13,7 @@ import {
   sessionVolume,
 } from "./engine/fitness";
 import { downscaleImage } from "./lib/images";
+import { metricsCsv, painCsv, sessionsCsv } from "./lib/records";
 import {
   activePainZones,
   dayKey,
@@ -28,6 +30,7 @@ import { ExerciseCreateForm } from "./screens/ExerciseCreateForm";
 import { ExerciseDetail } from "./screens/ExerciseDetail";
 import { ExercisePicker } from "./screens/ExercisePicker";
 import { Onboarding } from "./screens/Onboarding";
+import { HistoryScreen } from "./screens/HistoryScreen";
 import { PainScreen } from "./screens/PainScreen";
 import { ProgressScreen } from "./screens/ProgressScreen";
 import { RoutineEditor } from "./screens/RoutineEditor";
@@ -102,7 +105,10 @@ function App() {
     onSave: (value: number) => void;
   } | null>(null);
   const [adaptOpen, setAdaptOpen] = useState(false);
-  const [subScreen, setSubScreen] = useState<"dolor" | null>(null);
+  const [subScreen, setSubScreen] = useState<"dolor" | "historial" | null>(null);
+  const [editingSession, setEditingSession] = useState<TrainingSession | null>(null);
+  const [undo, setUndo] = useState<{ label: string; run: () => Promise<void> } | null>(null);
+  const undoTimer = useRef<number | null>(null);
   const [painSheet, setPainSheet] = useState<PainSheetConfig | null>(null);
   const [summary, setSummary] = useState<TrainingSession | null>(null);
   const [backupCandidate, setBackupCandidate] = useState<{
@@ -449,6 +455,95 @@ function App() {
     }
     if (status === "sin_dolor") await logNoPain("despues", { sessionId: session.id });
     else openPainSheet({ title: "¿Dónde quedó la molestia?", when: "despues", context: { sessionId: session.id } });
+  };
+
+  // ---- Historial editable ----
+  const offerUndo = (label: string, run: () => Promise<void>) => {
+    setUndo({ label, run });
+    if (undoTimer.current !== null) window.clearTimeout(undoTimer.current);
+    undoTimer.current = window.setTimeout(() => setUndo(null), 10_000);
+  };
+
+  const saveEditedSession = async (edited: TrainingSession) => {
+    const previous = getSnapshot().sessions.find((item) => item.id === edited.id);
+    if (!previous) return;
+    const next: TrainingSession = { ...edited, updatedAt: Date.now(), revision: (previous.revision ?? 1) + 1 };
+    try {
+      await commit(
+        [{ store: "sessions", put: next }],
+        [
+          {
+            entity: "sessions",
+            entityId: next.id,
+            action: "update",
+            summary: `Sesión ${next.dayName} editada`,
+            before: previous,
+            after: next,
+          },
+        ],
+      );
+      setEditingSession(null);
+      notify("Sesión actualizada. Volumen y marcas recalculados.");
+    } catch (error) {
+      notify(storageErrorMessage(error));
+    }
+  };
+
+  const deleteSession = async (session: TrainingSession) => {
+    if (!window.confirm(`¿Eliminar la sesión «${session.dayName}» del ${formatDate(session.startedAt)}?`)) return;
+    try {
+      await commit(
+        [{ store: "sessions", delete: session.id }],
+        [
+          {
+            entity: "sessions",
+            entityId: session.id,
+            action: "delete",
+            summary: `Sesión ${session.dayName} eliminada`,
+            before: session,
+          },
+        ],
+      );
+      setEditingSession(null);
+      offerUndo("Sesión eliminada.", async () => {
+        await commit(
+          [{ store: "sessions", put: session }],
+          [
+            {
+              entity: "sessions",
+              entityId: session.id,
+              action: "restore",
+              summary: `Sesión ${session.dayName} restaurada`,
+            },
+          ],
+        );
+        notify("Sesión restaurada.");
+      });
+    } catch (error) {
+      notify(storageErrorMessage(error));
+    }
+  };
+
+  const downloadText = (filename: string, text: string, type: string) => {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const exportCsv = () => {
+    const snapshot = getSnapshot();
+    const date = new Date().toISOString().slice(0, 10);
+    downloadText(
+      `ManteYym-sesiones-${date}.csv`,
+      sessionsCsv(snapshot.sessions, snapshot.exercises, snapshot.profile.units),
+      "text/csv",
+    );
+    downloadText(`ManteYym-dolor-${date}.csv`, painCsv(snapshot.painEntries), "text/csv");
+    downloadText(`ManteYym-medidas-${date}.csv`, metricsCsv(snapshot.bodyMetrics), "text/csv");
+    notify("Se descargaron 3 archivos CSV (sesiones, dolor y medidas).");
   };
 
   const setRoutineActive = async (routine: Routine) => {
@@ -902,7 +997,15 @@ function App() {
         updateActive((current) => ({
           ...current,
           exercises: current.exercises.map((item, itemIndex) =>
-            itemIndex === index ? { ...item, exerciseId: exercise.id } : item,
+            itemIndex === index
+              ? {
+                  ...item,
+                  exerciseId: exercise.id,
+                  status: "sustituido" as const,
+                  statusReason: item.statusReason ?? ("otro" as const),
+                  replacedExerciseId: item.replacedExerciseId ?? item.exerciseId,
+                }
+              : item,
           ),
         }));
         notify(`Sustituido por ${exercise.name}, del mismo patrón cuando hay una alternativa disponible.`);
@@ -998,6 +1101,17 @@ function App() {
           onKeypad={setKeypad}
           onToast={notify}
           onRestFinished={() => updateActive((active) => ({ ...active, restEndsAt: null }))}
+        />
+      );
+    if (subScreen === "historial")
+      return (
+        <HistoryScreen
+          sessions={state.sessions}
+          routines={state.routines}
+          catalog={state.exercises}
+          units={state.profile.units}
+          onBack={() => setSubScreen(null)}
+          onEdit={setEditingSession}
         />
       );
     if (subScreen === "dolor")
@@ -1119,6 +1233,7 @@ function App() {
           metrics={state.bodyMetrics}
           painEntries={state.painEntries}
           onOpenPain={() => setSubScreen("dolor")}
+          onOpenHistory={() => setSubScreen("historial")}
           goals={state.goals}
           cardio={state.cardio}
           photos={state.photos}
@@ -1157,6 +1272,8 @@ function App() {
         onImport={() => fileInput.current?.click()}
         onClear={() => void clearAll()}
         rollbackAt={rollbackSavedAt()}
+        onExportCsv={exportCsv}
+        auditLog={state.auditLog}
         onRollback={() => void undoImport()}
         onInstall={() => void installApp()}
         installAvailable={Boolean(installPrompt)}
@@ -1306,6 +1423,31 @@ function App() {
         />
       )}
       {keypad && <NumericPad config={keypad} onClose={() => setKeypad(null)} />}
+      {editingSession && (
+        <SessionEditor
+          session={editingSession}
+          catalog={state.exercises}
+          units={state.profile.units}
+          onSave={(session) => void saveEditedSession(session)}
+          onDelete={() => void deleteSession(editingSession)}
+          onClose={() => setEditingSession(null)}
+        />
+      )}
+      {undo && (
+        <div className="undo-banner" role="status">
+          <span>{undo.label}</span>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const action = undo.run;
+              setUndo(null);
+              void action().catch((error) => notify(storageErrorMessage(error)));
+            }}
+          >
+            Deshacer
+          </Button>
+        </div>
+      )}
       {painSheet && (
         <PainSheet config={painSheet} onSave={(entry) => void savePain(entry)} onClose={() => setPainSheet(null)} />
       )}
@@ -1327,6 +1469,10 @@ function App() {
           exercises={state.exercises}
           onClose={() => setSummary(null)}
           onEndPain={(status) => void endSessionPain(summary, status)}
+          onRate={(sessionRpe) => {
+            const updated = { ...summary, sessionRpe, updatedAt: Date.now() };
+            void commit([{ store: "sessions", put: updated }]).then(() => setSummary(updated));
+          }}
           onProgress={() => {
             setSummary(null);
             setTab("progreso");

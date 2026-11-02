@@ -3,7 +3,7 @@ import { Icon } from "../components/Icon";
 import { Button, Field, SwitchRow } from "../components/ui";
 import { APP_VERSION, GOALS } from "../constants";
 import { cleanNumber, cx, formatDate } from "../lib/format";
-import type { Profile, Settings } from "../types";
+import type { AuditEntry, Profile, Settings } from "../types";
 import { useEffect, useState } from "react";
 
 export function SettingsScreen({
@@ -19,6 +19,8 @@ export function SettingsScreen({
   onClear,
   rollbackAt,
   onRollback,
+  onExportCsv,
+  auditLog,
   onInstall,
   installAvailable,
   onToast,
@@ -35,6 +37,8 @@ export function SettingsScreen({
   onClear: () => void;
   rollbackAt: number | null;
   onRollback: () => void;
+  onExportCsv: () => void;
+  auditLog: AuditEntry[];
   onInstall: () => void;
   installAvailable: boolean;
   onToast: (message: string) => void;
@@ -280,6 +284,9 @@ export function SettingsScreen({
           <Button variant="secondary" icon="upload" onClick={onImport}>
             Importar respaldo
           </Button>
+          <Button variant="quiet" icon="download" onClick={onExportCsv}>
+            Exportar CSV (planilla)
+          </Button>
           <span>
             Último respaldo:{" "}
             {lastBackupAt
@@ -316,6 +323,29 @@ export function SettingsScreen({
           Las copias no se sincronizan automáticamente. Exporta cada cierto tiempo y guarda el archivo en un lugar
           seguro.
         </p>
+      </section>
+
+      <section className="settings-section">
+        <details className="audit-log">
+          <summary>
+            <span className="eyebrow">BITÁCORA DE CAMBIOS</span>
+            <strong>{auditLog.length} entradas</strong>
+          </summary>
+          <p className="muted-copy">
+            Cada edición o borrado de sesiones y registros de dolor queda acá con fecha. Los datos anteriores se
+            conservan dentro del respaldo JSON.
+          </p>
+          <ol>
+            {auditLog.slice(0, 50).map((entry) => (
+              <li key={entry.id}>
+                <time>
+                  {formatDate(entry.at, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </time>
+                <span>{entry.summary}</span>
+              </li>
+            ))}
+          </ol>
+        </details>
       </section>
 
       <section className="settings-section">

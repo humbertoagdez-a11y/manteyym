@@ -18,6 +18,22 @@ import { cleanNumber, cx, exerciseName, formatClock, formatDate, formatDuration,
 import type { BodyMetric, Exercise, GoalRecord, Muscle, PainEntry, Profile, TrainingSession } from "../types";
 import { type ChangeEvent, type FormEvent, useState } from "react";
 
+type MetricKey =
+  "weight" | "bodyFat" | "waist" | "chest" | "hip" | "neck" | "shoulders" | "arm" | "forearm" | "thigh" | "calf";
+const METRIC_FIELDS: { key: MetricKey; label: string; kind: "mass" | "length" | "percent" }[] = [
+  { key: "weight", label: "Peso corporal", kind: "mass" },
+  { key: "bodyFat", label: "% de grasa", kind: "percent" },
+  { key: "waist", label: "Cintura", kind: "length" },
+  { key: "chest", label: "Pecho", kind: "length" },
+  { key: "hip", label: "Cadera", kind: "length" },
+  { key: "neck", label: "Cuello", kind: "length" },
+  { key: "shoulders", label: "Hombros", kind: "length" },
+  { key: "arm", label: "Brazo", kind: "length" },
+  { key: "forearm", label: "Antebrazo", kind: "length" },
+  { key: "thigh", label: "Muslo", kind: "length" },
+  { key: "calf", label: "Pantorrilla", kind: "length" },
+];
+
 export function ProgressScreen({
   profile,
   sessions,
@@ -25,6 +41,7 @@ export function ProgressScreen({
   metrics,
   painEntries,
   onOpenPain,
+  onOpenHistory,
   goals,
   cardio,
   photos,
@@ -42,6 +59,7 @@ export function ProgressScreen({
   metrics: BodyMetric[];
   painEntries: PainEntry[];
   onOpenPain: () => void;
+  onOpenHistory: () => void;
   goals: GoalRecord[];
   cardio: { id: string; type: string; minutes: number; intensity: number; at: number }[];
   photos: { id: string; at: number; label: string; blob?: Blob }[];
@@ -56,13 +74,18 @@ export function ProgressScreen({
   const [rangeWeeks, setRangeWeeks] = useState(12);
   const [selectedExercise, setSelectedExercise] = useState(catalog[0]?.id ?? "");
   const [metricType, setMetricType] = useState("peso");
-  const [bodyValues, setBodyValues] = useState({ weight: "", waist: "", chest: "", hip: "" });
+  const [bodyValues, setBodyValues] = useState<Partial<Record<MetricKey, string>>>({});
+  const lengthUnit = profile.units === "kg" ? "cm" : "in";
   const [goalExercise, setGoalExercise] = useState(catalog[0]?.id ?? "");
   const [goalTarget, setGoalTarget] = useState("");
   const [cardioType, setCardioType] = useState("Caminata");
   const [cardioMinutes, setCardioMinutes] = useState("20");
   const [cardioIntensity, setCardioIntensity] = useState(3);
   const [photoLabel, setPhotoLabel] = useState("");
+  const [compare, setCompare] = useState<{ before?: string; after?: string }>({});
+  // Por defecto: la foto más vieja contra la más nueva (photos viene ordenado de más reciente a más vieja).
+  const compareBefore = photos.find((photo) => photo.id === compare.before) ?? photos.at(-1);
+  const compareAfter = photos.find((photo) => photo.id === compare.after) ?? photos[0];
   const [activeArea, setActiveArea] = useState("Cadera");
   const weeklyVolume = volumeByMuscle(sessions, catalog, Date.now() - 7 * DAY_MS);
   const targets = volumeTargets(profile);
@@ -116,17 +139,15 @@ export function ProgressScreen({
   };
   const submitMetric = async (event: FormEvent) => {
     event.preventDefault();
-    const metric: BodyMetric = {
-      id: makeId("metric"),
-      at: Date.now(),
-      ...(bodyValues.weight ? { weight: cleanNumber(bodyValues.weight) } : {}),
-      ...(bodyValues.waist ? { waist: cleanNumber(bodyValues.waist) } : {}),
-      ...(bodyValues.chest ? { chest: cleanNumber(bodyValues.chest) } : {}),
-      ...(bodyValues.hip ? { hip: cleanNumber(bodyValues.hip) } : {}),
-    };
-    if (Object.keys(metric).length <= 2) return;
-    await onAddMetric(metric);
-    setBodyValues({ weight: "", waist: "", chest: "", hip: "" });
+    const values = Object.fromEntries(
+      METRIC_FIELDS.filter((field) => bodyValues[field.key]?.trim()).map((field) => [
+        field.key,
+        cleanNumber(bodyValues[field.key] ?? ""),
+      ]),
+    );
+    if (!Object.keys(values).length) return;
+    await onAddMetric({ id: makeId("metric"), at: Date.now(), ...values });
+    setBodyValues({});
   };
   const submitGoal = async (event: FormEvent) => {
     event.preventDefault();
@@ -396,6 +417,11 @@ export function ProgressScreen({
           ))}
           {!sessions.length && <p className="muted-copy">Tu calendario se llenará con tus sesiones finalizadas.</p>}
         </div>
+        {sessions.length > 0 && (
+          <Button variant="secondary" icon="history" onClick={onOpenHistory}>
+            Ver y editar todo el historial ({sessions.length})
+          </Button>
+        )}
       </section>
 
       <div className="tracking-grid">
@@ -408,39 +434,19 @@ export function ProgressScreen({
             <Icon name="user" />
           </div>
           <p className="muted-copy">Opcional. Solo se guarda en tu dispositivo.</p>
-          <form className="tracking-form" onSubmit={(event) => void submitMetric(event)}>
-            <Field
-              label="Peso corporal"
-              type="number"
-              step={0.1}
-              value={bodyValues.weight}
-              onChange={(weight) => setBodyValues({ ...bodyValues, weight })}
-              suffix={profile.units}
-            />
-            <Field
-              label="Cintura"
-              type="number"
-              step={0.1}
-              value={bodyValues.waist}
-              onChange={(waist) => setBodyValues({ ...bodyValues, waist })}
-              suffix={profile.units}
-            />
-            <Field
-              label="Pecho"
-              type="number"
-              step={0.1}
-              value={bodyValues.chest}
-              onChange={(chest) => setBodyValues({ ...bodyValues, chest })}
-              suffix={profile.units}
-            />
-            <Field
-              label="Cadera"
-              type="number"
-              step={0.1}
-              value={bodyValues.hip}
-              onChange={(hip) => setBodyValues({ ...bodyValues, hip })}
-              suffix={profile.units}
-            />
+          <form className="tracking-form metric-form" onSubmit={(event) => void submitMetric(event)}>
+            {METRIC_FIELDS.map((field) => (
+              <Field
+                key={field.key}
+                label={field.label}
+                type="number"
+                step={0.1}
+                value={bodyValues[field.key] ?? ""}
+                onChange={(value) => setBodyValues({ ...bodyValues, [field.key]: value })}
+                suffix={field.kind === "mass" ? profile.units : field.kind === "percent" ? "%" : lengthUnit}
+                inputMode="decimal"
+              />
+            ))}
             <Button variant="secondary" type="submit">
               Guardar medición
             </Button>
@@ -449,7 +455,14 @@ export function ProgressScreen({
             <div className="metric-history-row" key={metric.id}>
               <span>{formatDate(metric.at, { day: "numeric", month: "short" })}</span>
               <span>{metric.weight ? `${formatted(metric.weight)} ${profile.units}` : ""}</span>
-              <small>{metric.waist ? `Cintura ${formatted(metric.waist)} ${profile.units}` : ""}</small>
+              <small>
+                {METRIC_FIELDS.filter((field) => field.key !== "weight" && metric[field.key] !== undefined)
+                  .map(
+                    (field) =>
+                      `${field.label} ${formatted(metric[field.key] as number)}${field.kind === "percent" ? "%" : ` ${lengthUnit}`}`,
+                  )
+                  .join(" · ")}
+              </small>
             </div>
           ))}
         </section>
@@ -640,15 +653,46 @@ export function ProgressScreen({
             <input type="file" accept="image/*" capture="environment" onChange={(event) => void handlePhoto(event)} />
           </label>
           <p className="muted-copy">Archivos de imagen hasta 12 MB. Las fotos entran en el respaldo JSON.</p>
-          {photos.length > 0 && (
+          {photos.length > 1 && (
             <div className="photo-comparison">
-              <span className="eyebrow">COMPARACIÓN LADO A LADO · RECIENTES</span>
+              <span className="eyebrow">COMPARACIÓN LADO A LADO</span>
+              <div className="photo-compare-pickers">
+                {(["before", "after"] as const).map((slot) => (
+                  <SelectField
+                    key={slot}
+                    label={slot === "before" ? "Antes" : "Después"}
+                    value={(slot === "before" ? compareBefore : compareAfter)?.id ?? ""}
+                    onChange={(id) => setCompare({ ...compare, [slot]: id })}
+                    options={photos.map((photo) => ({
+                      value: photo.id,
+                      label: `${formatDate(photo.at, { day: "numeric", month: "short", year: "numeric" })} · ${photo.label || "Foto"}`,
+                    }))}
+                  />
+                ))}
+              </div>
               <div>
-                {photos.slice(0, 2).map((photo) => (
+                {[compareBefore, compareAfter].map(
+                  (photo, index) =>
+                    photo && (
+                      <PhotoTile
+                        key={`${photo.id}-${index}`}
+                        photo={photo}
+                        onDelete={() => void onDeletePhoto(photo.id)}
+                      />
+                    ),
+                )}
+              </div>
+            </div>
+          )}
+          {photos.length > 0 && (
+            <details className="photo-gallery">
+              <summary>Todas las fotos ({photos.length})</summary>
+              <div className="photo-gallery-grid">
+                {photos.map((photo) => (
                   <PhotoTile key={photo.id} photo={photo} onDelete={() => void onDeletePhoto(photo.id)} />
                 ))}
               </div>
-            </div>
+            </details>
           )}
         </section>
       </div>
