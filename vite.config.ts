@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { createHash } from "crypto";
 import { readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import path from "path";
@@ -61,6 +62,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile(), serviceWorker()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+  },
+  // Vitest solo corre las pruebas unitarias; e2e/ es de Playwright.
+  test: {
+    include: ["tests/**/*.test.ts"],
   },
   resolve: {
     alias: {
