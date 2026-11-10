@@ -241,6 +241,16 @@
   border-top: 1px solid var(--border);
   padding: 24px 2px;
 }
+  /* Tabla de series con scroll horizontal en móvil */
+  .set-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .set-table-wrapper .set-table-head,
+  .set-table-wrapper .set-row {
+    min-width: min-content;
+  }
+
 .empty-mark {
   display: grid;
   width: 42px;
